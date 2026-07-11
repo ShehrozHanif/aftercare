@@ -12,8 +12,9 @@ a transport change only.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from agents import RunContextWrapper, function_tool
 from sqlalchemy import select
@@ -36,6 +37,10 @@ class ToolContext:
     conversation: Conversation
     patient_message: Message
     escalation: Alert | None = None
+    # The SDK may issue parallel tool calls; without this lock two
+    # concurrent escalate_to_clinician calls can both pass the
+    # already-escalated check and create duplicate alerts.
+    escalation_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 async def create_alert(
@@ -221,24 +226,25 @@ async def escalate_to_clinician(
     """
     context = ctx.context
     normalized = (severity or "").upper()
-    if context.escalation is not None:
-        # Already escalated this turn — upgrade severity if needed.
-        if normalized == "URGENT" and context.escalation.severity != "URGENT":
-            context.escalation.severity = "URGENT"
-            context.escalation.reason = reason
-            await context.session.flush()
-        return {
-            "status": "already_escalated",
-            "severity": context.escalation.severity,
-            "alert_id": context.escalation.id,
-        }
-    alert = await create_alert(
-        context.session,
-        context.patient,
-        context.conversation,
-        normalized,
-        reason,
-        matched_signs,
-    )
-    context.escalation = alert
+    async with context.escalation_lock:
+        if context.escalation is not None:
+            # Already escalated this turn — upgrade severity if needed.
+            if normalized == "URGENT" and context.escalation.severity != "URGENT":
+                context.escalation.severity = "URGENT"
+                context.escalation.reason = reason
+                await context.session.flush()
+            return {
+                "status": "already_escalated",
+                "severity": context.escalation.severity,
+                "alert_id": context.escalation.id,
+            }
+        alert = await create_alert(
+            context.session,
+            context.patient,
+            context.conversation,
+            normalized,
+            reason,
+            matched_signs,
+        )
+        context.escalation = alert
     return {"status": "escalated", "severity": alert.severity, "alert_id": alert.id}

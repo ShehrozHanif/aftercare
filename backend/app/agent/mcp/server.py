@@ -7,7 +7,7 @@ why swapping in a real MCP server later touches only this package.
 
 from __future__ import annotations
 
-from agents import Agent
+from agents import Agent, ModelSettings
 
 from app.agent.conditions.base import ConditionChecklist
 from app.agent.mcp.tools import (
@@ -38,4 +38,8 @@ def build_agent(patient: Patient, checklist: ConditionChecklist) -> Agent[ToolCo
         instructions=build_system_prompt(patient, checklist),
         model=settings.llm_model,
         tools=CLINICAL_TOOLS,
+        # Every tool shares one request-scoped AsyncSession, which is not
+        # safe under concurrent use — parallel tool calls caused duplicate
+        # alert INSERTs and lost status updates. Tools must run serially.
+        model_settings=ModelSettings(parallel_tool_calls=False),
     )

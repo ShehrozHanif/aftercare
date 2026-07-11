@@ -19,7 +19,13 @@ When a patient leaves the hospital, follow-up mostly doesn't happen — and smal
 
 ## 1.5 Current repo state & commands
 
-**The repo is currently a bare scaffold at Phase 0.** None of the backend/frontend described below exists yet — `main.py` is a hello-world stub. Everything from §3 onward is the build target, not the current state. `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
+**Phases 0–2 are built and verified end-to-end** (agent backend with escalation + tests, patient chat, live nurse dashboard). Remaining: Phase 3 demo polish, then bonus phases. `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
+
+Hard-won implementation notes:
+- The Agents SDK reads `OPENAI_API_KEY` from the process env; the app loads `.env` via pydantic-settings, so `main.py` hands the key over with `set_default_openai_key()` at startup.
+- All five clinical tools share one request-scoped AsyncSession — **parallel tool calls corrupt it** (duplicate alert INSERTs, lost status updates). `build_agent` sets `parallel_tool_calls=False`; keep it that way.
+- `agent_turn` has a deterministic safety net: if the LLM path returns without escalating a message the checklist matches, the keyword classifier escalates anyway (§2 rule 3). With no `OPENAI_API_KEY`, the whole agent runs on that classifier — the demo works offline.
+- Local dev DB is SQLite (`backend/aftercare.db`); delete the file and restart to reseed a clean demo state.
 
 **Package management is [uv](https://docs.astral.sh/uv/), not pip.** Python 3.14 is pinned via `.python-version`.
 

@@ -51,21 +51,31 @@ async def agent_turn(
     await session.flush()
 
     settings = get_settings()
+    tool_context = ToolContext(
+        session=session,
+        patient=patient,
+        conversation=conversation,
+        patient_message=patient_message,
+    )
     if settings.openai_api_key.strip():
         logger.info("agent_turn mode=llm patient_id=%s", patient.id)
         try:
-            reply, alert, mode = await _llm_turn(
-                session, patient, conversation, checklist, patient_message, incoming_text
-            )
+            reply, alert, mode = await _llm_turn(tool_context, checklist)
         except Exception:
             logger.exception(
                 "LLM turn failed for patient_id=%s — falling back to the "
                 "deterministic checklist classifier for this turn",
                 patient.id,
             )
-            reply, alert, mode = await _fallback_turn(
-                session, patient, conversation, checklist, incoming_text
-            )
+            if tool_context.escalation is not None:
+                # The model escalated before the failure — keep that alert;
+                # a fallback run here would create a duplicate.
+                reply = prompts.calm_escalation_reply(patient)
+                alert, mode = tool_context.escalation, "llm+template"
+            else:
+                reply, alert, mode = await _fallback_turn(
+                    session, patient, conversation, checklist, incoming_text
+                )
     else:
         logger.warning(
             "agent_turn mode=fallback patient_id=%s — OPENAI_API_KEY is not "
@@ -75,6 +85,39 @@ async def agent_turn(
         reply, alert, mode = await _fallback_turn(
             session, patient, conversation, checklist, incoming_text
         )
+
+    if alert is None:
+        # Safety net (§2 rule 3 — over-flag, never under-flag): the model
+        # can nondeterministically fail to call escalate_to_clinician on a
+        # message the checklist unambiguously matches. The deterministic
+        # classifier gets a veto in the escalating direction only.
+        severity, signs = match_signs(checklist, incoming_text)
+        if severity != "OK":
+            descriptions = [sign.description for sign in signs]
+            alert = await create_alert(
+                session,
+                patient,
+                conversation,
+                severity,
+                "Checklist safety net: patient message matched discharge "
+                f"warning signs: {'; '.join(descriptions)}. "
+                f'Patient said: "{incoming_text.strip()}"',
+                descriptions,
+            )
+            reply = prompts.calm_escalation_reply(patient)
+            logger.warning(
+                "SAFETY NET escalation patient_id=%s severity=%s — the %s "
+                "path did not escalate a checklist-matching message",
+                patient.id,
+                severity,
+                mode,
+            )
+            mode = f"{mode}+safety-net"
+
+    if alert is not None:
+        # §8 contract, enforced at one choke point regardless of which
+        # path created the alert.
+        patient.status = "alert"
 
     agent_message = Message(
         conversation_id=conversation.id,
@@ -110,23 +153,17 @@ async def start_checkin(session: AsyncSession, patient: Patient) -> tuple[Conver
 # LLM path (primary)
 # ---------------------------------------------------------------------------
 async def _llm_turn(
-    session: AsyncSession,
-    patient: Patient,
-    conversation: Conversation,
-    checklist: ConditionChecklist,
-    patient_message: Message,
-    incoming_text: str,
+    tool_context: ToolContext, checklist: ConditionChecklist
 ) -> tuple[str, Alert | None, str]:
     from agents import Runner  # lazy: fallback mode must not depend on it
 
     from app.agent.mcp.server import build_agent
 
-    tool_context = ToolContext(
-        session=session,
-        patient=patient,
-        conversation=conversation,
-        patient_message=patient_message,
-    )
+    session = tool_context.session
+    patient = tool_context.patient
+    conversation = tool_context.conversation
+    patient_message = tool_context.patient_message
+
     agent = build_agent(patient, checklist)
     history = await _conversation_input(session, conversation, patient_message)
     result = await Runner.run(agent, input=history, context=tool_context)
