@@ -12,6 +12,7 @@ import type {
   AlertRecord,
   ChatResponse,
   CheckinStartResponse,
+  CheckinSummary,
   ConversationResponse,
   Message,
   Patient,
@@ -211,6 +212,38 @@ export function mockChat(patientId: number, message: string): ChatResponse {
   state.step += 1;
   push(state, "agent", reply);
   return { reply, alert: null };
+}
+
+export function mockGetCheckins(patientId: number): CheckinSummary[] {
+  const state = getState(patientId);
+  const dayMs = 24 * 60 * 60 * 1000;
+  // Fixed illustrative history (newest first) + today's live state.
+  const history: CheckinSummary[] = [
+    {
+      conversation_id: state.conversationId,
+      started_at: now(),
+      escalated: (state.patient.open_alerts ?? []).length > 0,
+      severity: state.patient.open_alerts?.[0]?.severity ?? null,
+      summary:
+        state.patient.open_alerts?.[0]?.reason ??
+        "Feeling okay, taking medicines",
+    },
+    {
+      conversation_id: state.conversationId - 1,
+      started_at: new Date(Date.now() - dayMs).toISOString(),
+      escalated: false,
+      severity: null,
+      summary: "A little tired, otherwise well",
+    },
+    {
+      conversation_id: state.conversationId - 2,
+      started_at: new Date(Date.now() - 2 * dayMs).toISOString(),
+      escalated: false,
+      severity: null,
+      summary: "Feeling stable, no new symptoms",
+    },
+  ];
+  return history;
 }
 
 export function mockAckAlert(alertId: number): AlertRecord {

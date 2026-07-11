@@ -9,8 +9,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ackAlert, getConversation, getPatients } from "@/lib/api";
-import type { ConversationResponse, Patient, PatientStatus } from "@/lib/types";
+import { ackAlert, getCheckins, getConversation, getPatients } from "@/lib/api";
+import type {
+  CheckinSummary,
+  ConversationResponse,
+  Patient,
+  PatientStatus,
+} from "@/lib/types";
 import MockBadge from "@/components/MockBadge";
 import StatusPill from "@/components/StatusPill";
 
@@ -44,12 +49,21 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function Dashboard() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pollError, setPollError] = useState(false);
   const [transcriptFor, setTranscriptFor] = useState<number | null>(null);
   const [conversation, setConversation] = useState<ConversationResponse | null>(null);
+  const [checkins, setCheckins] = useState<CheckinSummary[] | null>(null);
   const [ackInFlight, setAckInFlight] = useState<Set<number>>(new Set());
   // ids of patients that just escalated (for the attention pulse)
   const [pulseIds, setPulseIds] = useState<Set<number>>(new Set());
@@ -83,19 +97,26 @@ export default function Dashboard() {
     return () => clearInterval(iv);
   }, [refresh]);
 
-  // Load (and keep refreshing) the open transcript.
+  // Load (and keep refreshing) the open transcript + check-in history.
   useEffect(() => {
     if (transcriptFor === null) {
       setConversation(null);
+      setCheckins(null);
       return;
     }
     let cancelled = false;
-    const load = () =>
+    const load = () => {
       getConversation(transcriptFor)
         .then((c) => {
           if (!cancelled) setConversation(c);
         })
         .catch(() => {});
+      getCheckins(transcriptFor)
+        .then((h) => {
+          if (!cancelled) setCheckins(h);
+        })
+        .catch(() => {});
+    };
     void load();
     const iv = setInterval(load, POLL_MS);
     return () => {
@@ -353,6 +374,39 @@ export default function Dashboard() {
                 </svg>
               </button>
             </header>
+            {checkins !== null && checkins.length > 0 && (
+              <section
+                aria-label="Recent check-ins"
+                className="border-b border-line px-4 py-3"
+              >
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+                  Recent check-ins
+                </h3>
+                <ol className="flex flex-col gap-1.5">
+                  {checkins.slice(0, 5).map((c) => (
+                    <li key={c.conversation_id} className="flex items-start gap-2 text-xs">
+                      <span className="w-16 shrink-0 pt-0.5 text-ink-soft">
+                        {formatDay(c.started_at)}
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          c.escalated
+                            ? c.severity === "URGENT"
+                              ? "bg-alert text-white"
+                              : "bg-alert-soft text-alert"
+                            : "bg-good-soft text-good"
+                        }`}
+                      >
+                        {c.escalated ? c.severity ?? "FLAGGED" : "All clear"}
+                      </span>
+                      <span className="min-w-0 truncate text-ink" title={c.summary}>
+                        {c.summary}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
             <div className="flex-1 overflow-y-auto bg-page px-4 py-4">
               {conversation === null ? (
                 <p className="text-center text-sm text-ink-soft">Loading transcript…</p>

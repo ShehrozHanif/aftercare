@@ -13,12 +13,14 @@ import type {
   AlertRecord,
   ChatResponse,
   CheckinStartResponse,
+  CheckinSummary,
   ConversationResponse,
   Patient,
 } from "./types";
 import {
   mockAckAlert,
   mockChat,
+  mockGetCheckins,
   mockGetConversation,
   mockGetPatients,
   mockStartCheckin,
@@ -121,6 +123,13 @@ export function ackAlert(alertId: number): Promise<AlertRecord> {
   return withFallback(
     () => request<AlertRecord>(`/alerts/${alertId}/ack`, { method: "POST" }),
     () => mockAckAlert(alertId)
+  );
+}
+
+export function getCheckins(patientId: number): Promise<CheckinSummary[]> {
+  return withFallback(
+    () => request<CheckinSummary[]>(`/patients/${patientId}/checkins`),
+    () => mockGetCheckins(patientId)
   );
 }
 

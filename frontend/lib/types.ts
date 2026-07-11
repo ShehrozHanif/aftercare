@@ -69,3 +69,12 @@ export interface CheckinStartResponse {
   conversation_id: number;
   reply: string;
 }
+
+/** One row of GET /patients/{id}/checkins — nurse-facing history. */
+export interface CheckinSummary {
+  conversation_id: number;
+  started_at: string; // ISO timestamp
+  escalated: boolean;
+  severity?: AlertSeverity | null;
+  summary: string;
+}

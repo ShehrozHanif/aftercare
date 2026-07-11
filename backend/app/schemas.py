@@ -72,3 +72,13 @@ class ConversationTranscript(BaseModel):
     patient_id: int
     patient_name: str
     messages: list[MessageOut]
+
+
+class CheckinSummary(BaseModel):
+    """One row of the nurse-facing 'recent check-ins' history."""
+
+    conversation_id: int
+    started_at: UTCDateTime
+    escalated: bool
+    severity: str | None = None  # 'WARNING' | 'URGENT' when escalated
+    summary: str

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -239,6 +240,12 @@ async def _fallback_turn(
 async def _get_or_create_conversation(
     session: AsyncSession, patient: Patient
 ) -> Conversation:
+    """Reuse today's conversation; start a new one on a new (UTC) day.
+
+    Check-ins are daily — without the rollover, a live message would be
+    appended to a seeded/previous day's conversation and the check-in
+    history would misattribute today's outcome to that day.
+    """
     conversation = (
         await session.execute(
             select(Conversation)
@@ -247,8 +254,14 @@ async def _get_or_create_conversation(
             .limit(1)
         )
     ).scalar_one_or_none()
-    if conversation is None:
-        conversation = Conversation(patient_id=patient.id)
-        session.add(conversation)
-        await session.flush()
+    if conversation is not None:
+        started = conversation.started_at
+        # SQLite returns naive datetimes; stored values are UTC.
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=UTC)
+        if started.astimezone(UTC).date() == datetime.now(UTC).date():
+            return conversation
+    conversation = Conversation(patient_id=patient.id)
+    session.add(conversation)
+    await session.flush()
     return conversation

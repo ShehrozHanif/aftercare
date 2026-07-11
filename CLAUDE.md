@@ -29,17 +29,12 @@ Hard-won implementation notes:
 - Negation detection (`conditions/base.py`) matches whole words only; "can't"/"cannot" are deliberately never denials ("cannot do my shopping" affirms the fatigue sign).
 - SQLite drops tzinfo on read, so schema datetimes use `schemas.UTCDateTime`, which re-stamps UTC and serializes with a `Z` — otherwise browsers parse timestamps as local time (5h off in Karachi). Use it for any new datetime field.
 - Local dev DB is SQLite (`backend/aftercare.db`); delete the file and restart to reseed a clean demo state.
-- Test suite: 48 tests in `backend/tests/` (escalation logic, LLM guardrails, matcher demo-script pins, routes). `uv run pytest` from `backend/` — must stay green.
+- Test suite lives in `backend/tests/` (escalation logic, LLM guardrails, matcher demo-script pins, routes). `uv run pytest` from `backend/` — must stay green.
 
-**Package management is [uv](https://docs.astral.sh/uv/), not pip.** Python 3.14 is pinned via `.python-version`.
+**Package management is [uv](https://docs.astral.sh/uv/), not pip.** Python 3.14 is pinned via `backend/.python-version`.
 
-Commands that work today:
-- `uv run main.py` — run the current stub
-- `uv add <package>` — add a dependency
-- `uv sync` — sync the environment
-
-Target dev commands once the project is scaffolded (§10 structure):
-- Backend: `uv run uvicorn app.main:app --reload` (from `backend/`)
+Dev commands:
+- Backend: `uv run uvicorn app.main:app --reload` (from `backend/`; `uv add <pkg>` / `uv sync` for deps)
 - Frontend: `npm run dev` (from `frontend/`)
 - Tests: `uv run pytest` (from `backend/`)
 
