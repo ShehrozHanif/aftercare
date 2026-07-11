@@ -19,7 +19,7 @@ When a patient leaves the hospital, follow-up mostly doesn't happen — and smal
 
 ## 1.5 Current repo state & commands
 
-**Phases 0–2 are built and verified end-to-end** (agent backend with escalation + tests, patient chat, live nurse dashboard). Remaining: Phase 3 demo polish, then bonus phases. `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
+**Phases 0–3 are built and verified end-to-end** (agent backend with escalation + tests, patient chat, live nurse dashboard, README, check-in history panel, scripted seed history). Remaining: deployment (Render + Vercel), then bonus phases (Twilio WhatsApp, scheduler). `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
 
 Hard-won implementation notes:
 - The Agents SDK reads `OPENAI_API_KEY` from the process env; the app loads `.env` via pydantic-settings, so `main.py` hands the key over with `set_default_openai_key()` at startup.
