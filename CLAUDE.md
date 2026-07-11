@@ -19,7 +19,13 @@ When a patient leaves the hospital, follow-up mostly doesn't happen — and smal
 
 ## 1.5 Current repo state & commands
 
-**Phases 0–3 are built and verified end-to-end** (agent backend with escalation + tests, patient chat, live nurse dashboard, README, check-in history panel, scripted seed history). Remaining: deployment (Render + Vercel), then bonus phases (Twilio WhatsApp, scheduler). `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
+**Status: Phases 0–3 are COMPLETE and verified end-to-end.** Done: agent backend (escalation + safety net + tests), patient chat, live nurse dashboard, README, recent check-ins history panel, scripted seed history (Ahmed Day-1/Day-2 all-clear + Fatima post-op), daily conversation rollover. Beyond the original spec: `GET /patients/{id}/checkins` (nurse-facing history, in §8).
+
+**▶ RESUME HERE — remaining work, in order:**
+1. **Deploy** (the original goal is a *deployed* prototype): backend + Postgres on Render, frontend on Vercel, set `NEXT_PUBLIC_API_URL` / `FRONTEND_URL` / `OPENAI_API_KEY` / `DATABASE_URL`. Needs the user's Render/Vercel accounts — ask them to log in / authorize.
+2. **Phase 4 (bonus): Twilio WhatsApp sandbox** — `POST /whatsapp/incoming` + `services/twilio_client.py` per §8. Needs the user's Twilio credentials.
+3. **Phase 5 (bonus): scheduled daily check-ins** — otherwise a talk-track point.
+4. Before the demo: delete `backend/aftercare.db` and restart to reseed the clean state; run the §13 script once as rehearsal. `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
 
 Hard-won implementation notes:
 - The Agents SDK reads `OPENAI_API_KEY` from the process env; the app loads `.env` via pydantic-settings, so `main.py` hands the key over with `set_default_openai_key()` at startup.
@@ -189,6 +195,7 @@ Exposes the clinical tools the model can call (this is the differentiator — re
 - `POST /checkins/{patient_id}/start` — agent sends the first greeting (for a manual/scheduled check-in trigger in the demo)
 - `GET /patients` — dashboard list with current status + condition tag
 - `GET /patients/{id}/conversation` — full transcript (for "View conversation")
+- `GET /patients/{id}/checkins` — recent check-in history: one summary row per conversation `{conversation_id, started_at, escalated, severity, summary}` (nurse "memory across days" panel)
 - `POST /alerts/{id}/ack` — nurse acknowledges an alert
 
 ### Twilio (bonus) — `services/twilio_client.py`
