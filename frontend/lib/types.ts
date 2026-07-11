@@ -1,0 +1,71 @@
+/**
+ * Shared types matching the frozen API contract in CLAUDE.md §8,
+ * verified against the running backend (2026-07-12). Do NOT invent new
+ * shapes here — any contract change goes through the orchestrator and
+ * updates §8 first.
+ */
+
+export type PatientStatus = "good" | "watch" | "alert";
+export type AlertSeverity = "WARNING" | "URGENT";
+export type AlertStatus = "open" | "acknowledged" | "resolved";
+export type Channel = "web" | "whatsapp";
+export type Sender = "agent" | "patient";
+
+export interface AlertRecord {
+  id: number;
+  patient_id: number;
+  conversation_id?: number | null;
+  severity: AlertSeverity;
+  reason: string;
+  matched_signs: string[];
+  status: AlertStatus;
+  created_at: string; // ISO timestamp
+}
+
+export interface Patient {
+  id: number;
+  name: string;
+  /** condition registry key, e.g. "heart_failure" */
+  condition: string;
+  /** human label from the backend, e.g. "Heart Failure" */
+  condition_display_name?: string;
+  discharge_date?: string; // ISO date
+  phone?: string | null;
+  channel?: Channel;
+  status: PatientStatus;
+  created_at?: string;
+  /** Alerts the backend still considers open, embedded in GET /patients. */
+  open_alerts?: AlertRecord[];
+}
+
+export interface Message {
+  id: number;
+  conversation_id?: number;
+  sender: Sender;
+  text: string;
+  created_at: string; // ISO timestamp
+  meta?: Record<string, unknown> | null;
+}
+
+/** Response of GET /patients/{id}/conversation */
+export interface ConversationResponse {
+  patient_id: number;
+  patient_name: string;
+  messages: Message[];
+}
+
+/** Response of POST /chat */
+export interface ChatResponse {
+  reply: string;
+  /**
+   * Present when this turn escalated. NEVER rendered on the patient
+   * screen (CLAUDE.md §2 rule 4) — dashboard-only data.
+   */
+  alert?: AlertRecord | null;
+}
+
+/** Response of POST /checkins/{patient_id}/start */
+export interface CheckinStartResponse {
+  conversation_id: number;
+  reply: string;
+}

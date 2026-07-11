@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+/*
+ * AfterCare design tokens (CLAUDE.md §9 — source of truth until
+ * AfterCare_prototype.html lands). Primitive -> semantic naming,
+ * wired into Tailwind v4 utilities via @theme.
+ */
+@theme {
+  /* Brand */
+  --color-pine: #1e5a4f;
+  --color-pine-deep: #16443c;
+  --color-pine-soft: #d8e7e2;
+  --color-page: #e9f0ed;
+
+  /* Status */
+  --color-good: #2e9a6c;
+  --color-good-soft: #e1f2e9;
+  --color-watch: #c98a2b;
+  --color-watch-soft: #f6ecda;
+  --color-alert: #ce5656;
+  --color-alert-soft: #fae7e7;
+
+  /* Text / surfaces */
+  --color-ink: #15302a;
+  --color-ink-soft: #5a6e68;
+  --color-card: #ffffff;
+  --color-line: #d3e0db;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+
+  --radius-bubble: 1.25rem;
+
+  --shadow-card: 0 1px 2px rgb(21 48 42 / 0.06), 0 4px 12px rgb(21 48 42 / 0.05);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible keyboard focus everywhere (§9 accessibility) */
+:focus-visible {
+  outline: 3px solid var(--color-pine);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Typing indicator */
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Gentle attention pulse for newly escalated dashboard rows */
+@keyframes alert-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(206 86 86 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(206 86 86 / 0);
+  }
+}
+.alert-pulse {
+  animation: alert-pulse 2s ease-in-out 3;
+}
+
+/* Respect reduced motion (§9) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
