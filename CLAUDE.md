@@ -25,7 +25,11 @@ Hard-won implementation notes:
 - The Agents SDK reads `OPENAI_API_KEY` from the process env; the app loads `.env` via pydantic-settings, so `main.py` hands the key over with `set_default_openai_key()` at startup.
 - All five clinical tools share one request-scoped AsyncSession — **parallel tool calls corrupt it** (duplicate alert INSERTs, lost status updates). `build_agent` sets `parallel_tool_calls=False`; keep it that way.
 - `agent_turn` has a deterministic safety net: if the LLM path returns without escalating a message the checklist matches, the keyword classifier escalates anyway (§2 rule 3). With no `OPENAI_API_KEY`, the whole agent runs on that classifier — the demo works offline.
+- **Because the safety net runs on every turn, checklist keywords must never match normal-recovery phrases.** Bare "tired" once flagged the scripted Day-1 all-clear line as WARNING (dashboard went red on the normal-path demo). Signs describing *progression* need qualified keywords ("more tired", not "tired"). `tests/test_matcher.py` pins the Day-1 and Day-4 demo scripts — run it after any keyword change.
+- Negation detection (`conditions/base.py`) matches whole words only; "can't"/"cannot" are deliberately never denials ("cannot do my shopping" affirms the fatigue sign).
+- SQLite drops tzinfo on read, so schema datetimes use `schemas.UTCDateTime`, which re-stamps UTC and serializes with a `Z` — otherwise browsers parse timestamps as local time (5h off in Karachi). Use it for any new datetime field.
 - Local dev DB is SQLite (`backend/aftercare.db`); delete the file and restart to reseed a clean demo state.
+- Test suite: 48 tests in `backend/tests/` (escalation logic, LLM guardrails, matcher demo-script pins, routes). `uv run pytest` from `backend/` — must stay green.
 
 **Package management is [uv](https://docs.astral.sh/uv/), not pip.** Python 3.14 is pinned via `.python-version`.
 
