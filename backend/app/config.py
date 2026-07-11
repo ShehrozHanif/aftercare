@@ -22,10 +22,13 @@ class Settings(BaseSettings):
     # App
     frontend_url: str = "http://localhost:3000"
 
-    # Twilio (Phase 4 bonus — unused in core flow)
+    # Twilio (Phase 4 bonus — web chat never depends on these)
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_whatsapp_from: str = ""
+    # Your own WhatsApp number (e.g. +923001234567). Seeded onto Ahmed so
+    # the sandbox demo maps your messages to the demo patient.
+    demo_whatsapp_phone: str = ""
 
 
 @lru_cache

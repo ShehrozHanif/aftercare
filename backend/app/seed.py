@@ -66,12 +66,17 @@ async def seed(session: AsyncSession) -> None:
         await session.commit()
         return
 
+    from app.config import get_settings
+
+    demo_phone = get_settings().demo_whatsapp_phone.strip() or None
+
     today = date.today()
     ahmed = Patient(
         name="Ahmed Raza",
         condition="heart_failure",
         discharge_date=today - timedelta(days=4),
-        channel="web",
+        channel="whatsapp" if demo_phone else "web",
+        phone=demo_phone,
         status="good",
     )
     fatima = Patient(

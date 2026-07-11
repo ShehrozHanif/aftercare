@@ -21,9 +21,11 @@ When a patient leaves the hospital, follow-up mostly doesn't happen — and smal
 
 **Status: Phases 0–3 are COMPLETE and verified end-to-end.** Done: agent backend (escalation + safety net + tests), patient chat, live nurse dashboard, README, recent check-ins history panel, scripted seed history (Ahmed Day-1/Day-2 all-clear + Fatima post-op), daily conversation rollover. Beyond the original spec: `GET /patients/{id}/checkins` (nurse-facing history, in §8).
 
+**Phase 4 (WhatsApp) code is COMPLETE and tested** — `POST /whatsapp/incoming` (replies via TwiML, maps `From` → patient.phone, unknown numbers get a polite pointer), `services/twilio_client.py` (`send_whatsapp` no-ops safely unconfigured), check-in greeting delivered to WhatsApp for whatsapp-channel patients. Set `DEMO_WHATSAPP_PHONE` in `.env` + reseed to link Ahmed to your number. **Not yet done live:** needs the user's Twilio sandbox credentials in `.env` and a public webhook URL (ngrok or the deployed backend) pointed at `/whatsapp/incoming`.
+
 **▶ RESUME HERE — remaining work, in order:**
 1. **Deploy** (the original goal is a *deployed* prototype): backend + Postgres on Render, frontend on Vercel, set `NEXT_PUBLIC_API_URL` / `FRONTEND_URL` / `OPENAI_API_KEY` / `DATABASE_URL`. Needs the user's Render/Vercel accounts — ask them to log in / authorize.
-2. **Phase 4 (bonus): Twilio WhatsApp sandbox** — `POST /whatsapp/incoming` + `services/twilio_client.py` per §8. Needs the user's Twilio credentials.
+2. **Phase 4 live wiring**: user's Twilio credentials in `.env`, join the sandbox from their phone, point the sandbox webhook at `<public-url>/whatsapp/incoming`.
 3. **Phase 5 (bonus): scheduled daily check-ins** — otherwise a talk-track point.
 4. Before the demo: delete `backend/aftercare.db` and restart to reseed the clean state; run the §13 script once as rehearsal. `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
 

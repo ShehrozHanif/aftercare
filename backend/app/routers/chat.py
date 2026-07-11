@@ -9,6 +9,7 @@ from app.agent.runner import agent_turn, start_checkin
 from app.db import get_session
 from app.models import Patient
 from app.schemas import AlertOut, ChatRequest, ChatResponse, CheckinStartResponse
+from app.services.twilio_client import send_whatsapp
 
 router = APIRouter(tags=["chat"])
 
@@ -44,4 +45,9 @@ async def start_checkin_route(
         conversation, greeting = await start_checkin(session, patient)
     except UnknownConditionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # WhatsApp door (Phase 4): deliver the greeting to the patient's phone
+    # too. No-ops safely when Twilio isn't configured — web chat never
+    # depends on it.
+    if patient.channel == "whatsapp" and patient.phone:
+        await send_whatsapp(patient.phone, greeting)
     return CheckinStartResponse(conversation_id=conversation.id, reply=greeting)
