@@ -123,8 +123,14 @@ CHECKLIST = ConditionChecklist(
             id="fatigue",
             description="Increasing fatigue / can't do usual activities",
             severity="WARNING",
+            # NOTE: deliberately no bare "tired" — mild tiredness is normal
+            # in early recovery (see jounry.md Day-1 script); the sign is
+            # *increasing* fatigue that limits usual activities.
             keywords=(
-                "tired",
+                "more tired",
+                "so tired",
+                "very tired",
+                "too tired",
                 "exhausted",
                 "fatigue",
                 "no energy",

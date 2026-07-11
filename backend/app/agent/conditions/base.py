@@ -37,28 +37,18 @@ class ConditionChecklist:
 
 _CLAUSE_SPLIT = re.compile(r"[.,;!?\n]| and | but | although | though ")
 
-# Tokens that indicate the patient is *denying* a symptom in a clause.
-# Deliberately excludes "can't" so phrases like "can't breathe" /
-# "can't catch my breath" are never treated as denials.
-_NEGATION_TOKENS = (
-    "no ",
-    "not ",
-    "never",
-    "without",
-    "denies",
-    "deny",
-    "don't",
-    "doesn't",
-    "hasn't",
-    "haven't",
-    "isn't",
-    "aren't",
-    "won't",
+# Words that indicate the patient is *denying* a symptom in a clause.
+# Matched on word boundaries so "cannot"/"can't" never count as denials —
+# "can't breathe" / "cannot do my shopping" are affirmations of symptoms.
+# Apostrophes optional ("dont") since patients type informally.
+_NEGATION_RE = re.compile(
+    r"\b(?:no|not|never|without|denies|deny|"
+    r"don'?t|doesn'?t|hasn'?t|haven'?t|isn'?t|aren'?t|won'?t)\b"
 )
 
 
 def _is_negated(clause: str) -> bool:
-    return any(token in clause for token in _NEGATION_TOKENS)
+    return _NEGATION_RE.search(clause) is not None
 
 
 def match_signs(
