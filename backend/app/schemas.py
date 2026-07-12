@@ -82,3 +82,30 @@ class CheckinSummary(BaseModel):
     escalated: bool
     severity: str | None = None  # 'WARNING' | 'URGENT' when escalated
     summary: str
+
+
+class SymptomMention(BaseModel):
+    """One escalation in the recovery report's symptom timeline."""
+
+    date: UTCDateTime
+    severity: str
+    signs: list[str]
+
+
+class RecoveryReport(BaseModel):
+    """Nurse-facing post-discharge summary — computed deterministically
+    from what the patient *reported* (never interprets clinical data)."""
+
+    patient_id: int
+    patient_name: str
+    condition_display_name: str
+    discharge_date: date | None = None
+    days_since_discharge: int | None = None
+    status: str
+    checkins_sent: int
+    checkins_answered: int
+    medication_concerns: int  # escalations that included the medication sign
+    symptom_mentions: list[SymptomMention]
+    alerts_total: int
+    alerts_open: int
+    generated_at: UTCDateTime

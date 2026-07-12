@@ -16,6 +16,7 @@ import type {
   CheckinSummary,
   ConversationResponse,
   Patient,
+  RecoveryReport,
 } from "./types";
 import {
   mockAckAlert,
@@ -23,6 +24,7 @@ import {
   mockGetCheckins,
   mockGetConversation,
   mockGetPatients,
+  mockGetReport,
   mockStartCheckin,
 } from "./mocks";
 
@@ -130,6 +132,13 @@ export function getCheckins(patientId: number): Promise<CheckinSummary[]> {
   return withFallback(
     () => request<CheckinSummary[]>(`/patients/${patientId}/checkins`),
     () => mockGetCheckins(patientId)
+  );
+}
+
+export function getReport(patientId: number): Promise<RecoveryReport> {
+  return withFallback(
+    () => request<RecoveryReport>(`/patients/${patientId}/report`),
+    () => mockGetReport(patientId)
   );
 }
 

@@ -78,3 +78,27 @@ export interface CheckinSummary {
   severity?: AlertSeverity | null;
   summary: string;
 }
+
+/** One escalation in the recovery report's symptom timeline. */
+export interface SymptomMention {
+  date: string; // ISO timestamp
+  severity: AlertSeverity | string;
+  signs: string[];
+}
+
+/** Response of GET /patients/{id}/report — nurse-facing recovery summary. */
+export interface RecoveryReport {
+  patient_id: number;
+  patient_name: string;
+  condition_display_name: string;
+  discharge_date?: string | null;
+  days_since_discharge?: number | null;
+  status: PatientStatus;
+  checkins_sent: number;
+  checkins_answered: number;
+  medication_concerns: number;
+  symptom_mentions: SymptomMention[];
+  alerts_total: number;
+  alerts_open: number;
+  generated_at: string;
+}

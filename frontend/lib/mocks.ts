@@ -16,6 +16,7 @@ import type {
   ConversationResponse,
   Message,
   Patient,
+  RecoveryReport,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -244,6 +245,31 @@ export function mockGetCheckins(patientId: number): CheckinSummary[] {
     },
   ];
   return history;
+}
+
+export function mockGetReport(patientId: number): RecoveryReport {
+  const state = getState(patientId);
+  const alerts = state.patient.open_alerts ?? [];
+  return {
+    patient_id: patientId,
+    patient_name: state.patient.name,
+    condition_display_name:
+      state.patient.condition_display_name ?? state.patient.condition,
+    discharge_date: state.patient.discharge_date ?? null,
+    days_since_discharge: 4,
+    status: state.patient.status,
+    checkins_sent: 3,
+    checkins_answered: 3,
+    medication_concerns: 0,
+    symptom_mentions: alerts.map((a) => ({
+      date: a.created_at,
+      severity: a.severity,
+      signs: a.matched_signs,
+    })),
+    alerts_total: alerts.length,
+    alerts_open: alerts.filter((a) => a.status === "open").length,
+    generated_at: now(),
+  };
 }
 
 export function mockAckAlert(alertId: number): AlertRecord {

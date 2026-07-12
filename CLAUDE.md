@@ -200,6 +200,7 @@ Exposes the clinical tools the model can call (this is the differentiator — re
 - `GET /patients` — dashboard list with current status + condition tag
 - `GET /patients/{id}/conversation` — full transcript (for "View conversation")
 - `GET /patients/{id}/checkins` — recent check-in history: one summary row per conversation `{conversation_id, started_at, escalated, severity, summary}` (nurse "memory across days" panel)
+- `GET /patients/{id}/report` — recovery report: `{checkins_sent, checkins_answered, medication_concerns, symptom_mentions[{date, severity, signs}], alerts_total, alerts_open, days_since_discharge, ...}` — deterministic aggregation of what the patient *reported* (never interprets clinical data); backs the dashboard "View report" panel
 - `POST /alerts/{id}/ack` — nurse acknowledges an alert
 
 ### Twilio (bonus) — `services/twilio_client.py`

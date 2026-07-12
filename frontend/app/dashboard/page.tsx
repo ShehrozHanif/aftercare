@@ -9,12 +9,19 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ackAlert, getCheckins, getConversation, getPatients } from "@/lib/api";
+import {
+  ackAlert,
+  getCheckins,
+  getConversation,
+  getPatients,
+  getReport,
+} from "@/lib/api";
 import type {
   CheckinSummary,
   ConversationResponse,
   Patient,
   PatientStatus,
+  RecoveryReport,
 } from "@/lib/types";
 import MockBadge from "@/components/MockBadge";
 import StatusPill from "@/components/StatusPill";
@@ -64,6 +71,8 @@ export default function Dashboard() {
   const [transcriptFor, setTranscriptFor] = useState<number | null>(null);
   const [conversation, setConversation] = useState<ConversationResponse | null>(null);
   const [checkins, setCheckins] = useState<CheckinSummary[] | null>(null);
+  const [reportFor, setReportFor] = useState<number | null>(null);
+  const [report, setReport] = useState<RecoveryReport | null>(null);
   const [ackInFlight, setAckInFlight] = useState<Set<number>>(new Set());
   // ids of patients that just escalated (for the attention pulse)
   const [pulseIds, setPulseIds] = useState<Set<number>>(new Set());
@@ -124,6 +133,23 @@ export default function Dashboard() {
       clearInterval(iv);
     };
   }, [transcriptFor]);
+
+  // Load the recovery report when its panel opens (one-shot per open).
+  useEffect(() => {
+    if (reportFor === null) {
+      setReport(null);
+      return;
+    }
+    let cancelled = false;
+    getReport(reportFor)
+      .then((r) => {
+        if (!cancelled) setReport(r);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [reportFor]);
 
   const onAck = async (alertId: number) => {
     setAckInFlight((prev) => new Set(prev).add(alertId));
@@ -267,6 +293,13 @@ export default function Dashboard() {
                           </button>
                           <button
                             type="button"
+                            onClick={() => setReportFor(p.id)}
+                            className="rounded-lg border border-pine/40 bg-card px-3 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-pine-soft"
+                          >
+                            View report
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => void onAck(alert.id)}
                             disabled={ackInFlight.has(alert.id)}
                             className="rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-page disabled:opacity-50"
@@ -278,13 +311,20 @@ export default function Dashboard() {
                     ))}
 
                   {!escalated && (
-                    <div className="mt-2.5">
+                    <div className="mt-2.5 flex flex-wrap gap-4">
                       <button
                         type="button"
                         onClick={() => setTranscriptFor(p.id)}
                         className="text-xs font-semibold text-pine underline-offset-2 hover:underline"
                       >
                         View conversation
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReportFor(p.id)}
+                        className="text-xs font-semibold text-pine underline-offset-2 hover:underline"
+                      >
+                        View report
                       </button>
                     </div>
                   )}
@@ -435,6 +475,147 @@ export default function Dashboard() {
                     </li>
                   ))}
                 </ol>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Recovery report panel */}
+      {reportFor !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Recovery report for ${report?.patient_name ?? "patient"}`}
+          className="fixed inset-0 z-40 flex justify-end bg-ink/40"
+          onClick={() => setReportFor(null)}
+        >
+          <div
+            className="flex h-full w-full max-w-md flex-col bg-card shadow-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="flex items-center justify-between border-b border-line px-4 py-3">
+              <h2 className="font-bold">
+                {report?.patient_name ?? "Recovery report"}
+                <span className="ml-2 text-xs font-normal text-ink-soft">
+                  recovery report
+                </span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setReportFor(null)}
+                aria-label="Close report"
+                className="rounded-full p-2 text-ink-soft transition-colors hover:bg-page hover:text-ink"
+              >
+                <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="m3 3 10 10M13 3 3 13"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto bg-page px-4 py-4">
+              {report === null ? (
+                <p className="text-center text-sm text-ink-soft">Loading report…</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <section className="rounded-xl border border-line bg-card p-3 shadow-card">
+                    <p className="text-xs text-ink-soft">
+                      {report.condition_display_name}
+                      {report.days_since_discharge !== null &&
+                        report.days_since_discharge !== undefined &&
+                        ` · day ${report.days_since_discharge} after discharge`}
+                    </p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-lg bg-page p-2">
+                        <p className="text-lg font-bold">
+                          {report.checkins_answered}/{report.checkins_sent}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-ink-soft">
+                          Check-ins answered
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-page p-2">
+                        <p
+                          className={`text-lg font-bold ${
+                            report.alerts_open > 0 ? "text-alert" : ""
+                          }`}
+                        >
+                          {report.alerts_open}
+                          <span className="text-xs font-normal text-ink-soft">
+                            {" "}
+                            / {report.alerts_total}
+                          </span>
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-ink-soft">
+                          Open / total alerts
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-page p-2">
+                        <p
+                          className={`text-lg font-bold ${
+                            report.medication_concerns > 0 ? "text-watch" : ""
+                          }`}
+                        >
+                          {report.medication_concerns}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-ink-soft">
+                          Medication concerns
+                        </p>
+                      </div>
+                    </div>
+                    {report.checkins_sent > report.checkins_answered && (
+                      <p className="mt-2 rounded-lg bg-watch-soft px-2 py-1 text-xs text-ink">
+                        {report.checkins_sent - report.checkins_answered} check-in
+                        {report.checkins_sent - report.checkins_answered > 1
+                          ? "s"
+                          : ""}{" "}
+                        went unanswered — silence can be a signal too.
+                      </p>
+                    )}
+                  </section>
+
+                  <section
+                    aria-label="Reported symptoms since discharge"
+                    className="rounded-xl border border-line bg-card p-3 shadow-card"
+                  >
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+                      Reported symptoms since discharge
+                    </h3>
+                    {report.symptom_mentions.length === 0 ? (
+                      <p className="mt-2 text-sm text-ink-soft">
+                        No warning signs reported. 💙
+                      </p>
+                    ) : (
+                      <ol className="mt-2 flex flex-col gap-2">
+                        {report.symptom_mentions.map((m, i) => (
+                          <li key={i} className="text-xs">
+                            <span className="text-ink-soft">{formatDay(m.date)}</span>
+                            <span
+                              className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                m.severity === "URGENT"
+                                  ? "bg-alert text-white"
+                                  : "bg-alert-soft text-alert"
+                              }`}
+                            >
+                              {m.severity}
+                            </span>
+                            <span className="mt-1 block text-ink">
+                              {m.signs.join(" · ")}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </section>
+
+                  <p className="text-center text-[10px] text-ink-soft">
+                    Aggregates what the patient reported — clinical decisions
+                    always rest with the care team.
+                  </p>
+                </div>
               )}
             </div>
           </div>

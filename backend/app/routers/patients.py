@@ -5,6 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from datetime import UTC, date, datetime
+
 from app.agent.conditions import CONDITIONS
 from app.db import get_session
 from app.models import Alert, Conversation, Message, Patient
@@ -14,6 +16,8 @@ from app.schemas import (
     ConversationTranscript,
     MessageOut,
     PatientOut,
+    RecoveryReport,
+    SymptomMention,
 )
 
 router = APIRouter(tags=["patients"])
@@ -148,3 +152,84 @@ async def list_checkins(
             )
         )
     return summaries
+
+
+@router.get("/patients/{patient_id}/report", response_model=RecoveryReport)
+async def recovery_report(
+    patient_id: int, session: AsyncSession = Depends(get_session)
+) -> RecoveryReport:
+    """Post-discharge recovery report for the nurse: check-in compliance,
+    symptom timeline, medication concerns, alert history. Deterministic —
+    aggregates what the patient reported; never interprets clinical data."""
+    patient = await session.get(Patient, patient_id)
+    if patient is None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    conversations = (
+        (
+            await session.execute(
+                select(Conversation)
+                .where(Conversation.patient_id == patient_id)
+                .order_by(Conversation.started_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    answered_ids = set(
+        (
+            await session.execute(
+                select(Message.conversation_id)
+                .join(Conversation, Message.conversation_id == Conversation.id)
+                .where(
+                    Conversation.patient_id == patient_id,
+                    Message.sender == "patient",
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    alerts = (
+        (
+            await session.execute(
+                select(Alert)
+                .where(Alert.patient_id == patient_id)
+                .order_by(Alert.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    return RecoveryReport(
+        patient_id=patient.id,
+        patient_name=patient.name,
+        condition_display_name=_display_name(patient.condition),
+        discharge_date=patient.discharge_date,
+        days_since_discharge=(
+            (date.today() - patient.discharge_date).days
+            if patient.discharge_date
+            else None
+        ),
+        status=patient.status,
+        checkins_sent=len(conversations),
+        checkins_answered=len(answered_ids),
+        medication_concerns=sum(
+            1
+            for a in alerts
+            if any("medication" in sign.lower() for sign in (a.matched_signs or []))
+        ),
+        symptom_mentions=[
+            SymptomMention(
+                date=a.created_at,
+                severity=a.severity,
+                signs=list(a.matched_signs or []),
+            )
+            for a in alerts
+        ],
+        alerts_total=len(alerts),
+        alerts_open=sum(1 for a in alerts if a.status == "open"),
+        generated_at=datetime.now(UTC),
+    )
