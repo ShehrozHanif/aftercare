@@ -57,6 +57,14 @@ Patient (WhatsApp) ─┘      │ loads the condition's checklist         (red 
 
 **Stack:** Next.js + TypeScript + Tailwind (frontend) · FastAPI + SQLAlchemy async (backend) · OpenAI Agents SDK with `gpt-5-mini` (the AI) · Twilio WhatsApp sandbox (bonus channel). Deliberately simple — no Kubernetes, no queues; one small app that works.
 
+## Try it live
+
+- **Patient chat:** https://aftercare-theta.vercel.app/patient
+- **Nurse dashboard:** https://aftercare-theta.vercel.app/dashboard
+- **API:** https://aftercare-backend.onrender.com
+
+(Free hosting — the backend sleeps when idle, so the first request can take ~30 seconds to wake it up.)
+
 ## Run it locally
 
 ```bash
