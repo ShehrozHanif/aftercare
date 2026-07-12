@@ -25,6 +25,7 @@ import {
   mockGetConversation,
   mockGetPatients,
   mockGetReport,
+  mockResolvePatient,
   mockStartCheckin,
 } from "./mocks";
 
@@ -139,6 +140,13 @@ export function getReport(patientId: number): Promise<RecoveryReport> {
   return withFallback(
     () => request<RecoveryReport>(`/patients/${patientId}/report`),
     () => mockGetReport(patientId)
+  );
+}
+
+export function resolvePatient(patientId: number): Promise<Patient> {
+  return withFallback(
+    () => request<Patient>(`/patients/${patientId}/resolve`, { method: "POST" }),
+    () => mockResolvePatient(patientId)
   );
 }
 

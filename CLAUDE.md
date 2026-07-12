@@ -202,6 +202,7 @@ Exposes the clinical tools the model can call (this is the differentiator — re
 - `GET /patients/{id}/checkins` — recent check-in history: one summary row per conversation `{conversation_id, started_at, escalated, severity, summary}` (nurse "memory across days" panel)
 - `GET /patients/{id}/report` — recovery report: `{checkins_sent, checkins_answered, medication_concerns, symptom_mentions[{date, severity, signs}], alerts_total, alerts_open, days_since_discharge, ...}` — deterministic aggregation of what the patient *reported* (never interprets clinical data); backs the dashboard "View report" panel
 - `POST /alerts/{id}/ack` — nurse acknowledges an alert
+- `POST /patients/{id}/resolve` — nurse closes the case: watch → good, acknowledged alerts → resolved; 409 while any alert is still open (red never jumps straight to green). The agent can only raise concern; only a human lowers it (§2.2).
 
 ### Twilio (bonus) — `services/twilio_client.py`
 - Uses Twilio **WhatsApp Sandbox** (no business verification, works in ~1 hour, for demo phones that have joined the sandbox).

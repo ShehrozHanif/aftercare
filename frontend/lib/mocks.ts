@@ -272,6 +272,16 @@ export function mockGetReport(patientId: number): RecoveryReport {
   };
 }
 
+export function mockResolvePatient(patientId: number): Patient {
+  const state = getState(patientId);
+  if ((state.patient.open_alerts ?? []).some((a) => a.status === "open")) {
+    throw new Error("Open alerts must be acknowledged before resolving");
+  }
+  state.patient.status = "good";
+  state.patient.open_alerts = [];
+  return { ...state.patient };
+}
+
 export function mockAckAlert(alertId: number): AlertRecord {
   for (const state of store.values()) {
     const alerts = state.patient.open_alerts ?? [];

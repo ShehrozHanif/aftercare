@@ -15,6 +15,7 @@ import {
   getConversation,
   getPatients,
   getReport,
+  resolvePatient,
 } from "@/lib/api";
 import type {
   CheckinSummary,
@@ -74,6 +75,7 @@ export default function Dashboard() {
   const [reportFor, setReportFor] = useState<number | null>(null);
   const [report, setReport] = useState<RecoveryReport | null>(null);
   const [ackInFlight, setAckInFlight] = useState<Set<number>>(new Set());
+  const [resolveInFlight, setResolveInFlight] = useState<Set<number>>(new Set());
   // ids of patients that just escalated (for the attention pulse)
   const [pulseIds, setPulseIds] = useState<Set<number>>(new Set());
   const prevAlertedRef = useRef<Set<number> | null>(null);
@@ -150,6 +152,22 @@ export default function Dashboard() {
       cancelled = true;
     };
   }, [reportFor]);
+
+  const onResolve = async (patientId: number) => {
+    setResolveInFlight((prev) => new Set(prev).add(patientId));
+    try {
+      await resolvePatient(patientId);
+      await refresh();
+    } catch {
+      // refused (e.g. an alert reopened meanwhile) — row stays as is
+    } finally {
+      setResolveInFlight((prev) => {
+        const next = new Set(prev);
+        next.delete(patientId);
+        return next;
+      });
+    }
+  };
 
   const onAck = async (alertId: number) => {
     setAckInFlight((prev) => new Set(prev).add(alertId));
@@ -311,7 +329,7 @@ export default function Dashboard() {
                     ))}
 
                   {!escalated && (
-                    <div className="mt-2.5 flex flex-wrap gap-4">
+                    <div className="mt-2.5 flex flex-wrap items-center gap-4">
                       <button
                         type="button"
                         onClick={() => setTranscriptFor(p.id)}
@@ -326,6 +344,18 @@ export default function Dashboard() {
                       >
                         View report
                       </button>
+                      {status === "watch" && (
+                        <button
+                          type="button"
+                          onClick={() => void onResolve(p.id)}
+                          disabled={resolveInFlight.has(p.id)}
+                          className="rounded-lg border border-good/50 bg-good-soft px-3 py-1.5 text-xs font-semibold text-good transition-colors hover:bg-good hover:text-white disabled:opacity-50"
+                        >
+                          {resolveInFlight.has(p.id)
+                            ? "Updating…"
+                            : "Mark as all good"}
+                        </button>
+                      )}
                     </div>
                   )}
                 </li>

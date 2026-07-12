@@ -154,6 +154,52 @@ async def list_checkins(
     return summaries
 
 
+@router.post("/patients/{patient_id}/resolve", response_model=PatientOut)
+async def resolve_patient(
+    patient_id: int, session: AsyncSession = Depends(get_session)
+) -> PatientOut:
+    """Nurse closes the case: watch -> good, acknowledged alerts ->
+    resolved. Refused while any alert is still open (acknowledge first —
+    red never jumps straight to green). The asymmetry is deliberate: the
+    agent can only raise concern; only a human can lower it (§2.2)."""
+    patient = await session.get(Patient, patient_id)
+    if patient is None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    alerts = (
+        (
+            await session.execute(
+                select(Alert).where(Alert.patient_id == patient_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if any(a.status == "open" for a in alerts):
+        raise HTTPException(
+            status_code=409,
+            detail="Open alerts must be acknowledged before resolving",
+        )
+
+    for alert in alerts:
+        if alert.status == "acknowledged":
+            alert.status = "resolved"
+    patient.status = "good"
+    await session.commit()
+
+    return PatientOut(
+        id=patient.id,
+        name=patient.name,
+        condition=patient.condition,
+        condition_display_name=_display_name(patient.condition),
+        status=patient.status,
+        channel=patient.channel,
+        discharge_date=patient.discharge_date,
+        created_at=patient.created_at,
+        open_alerts=[],
+    )
+
+
 @router.get("/patients/{patient_id}/report", response_model=RecoveryReport)
 async def recovery_report(
     patient_id: int, session: AsyncSession = Depends(get_session)
