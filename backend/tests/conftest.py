@@ -28,8 +28,12 @@ async def db_sessionmaker():
 
 @pytest.fixture
 async def client(db_sessionmaker, monkeypatch):
-    # Force deterministic fallback mode even if the dev machine has a key.
+    # Force deterministic fallback mode even if the dev machine has a key,
+    # and blank Twilio so tests never take the live path / send messages.
     monkeypatch.setattr(get_settings(), "openai_api_key", "")
+    monkeypatch.setattr(get_settings(), "twilio_account_sid", "")
+    monkeypatch.setattr(get_settings(), "twilio_auth_token", "")
+    monkeypatch.setattr(get_settings(), "twilio_whatsapp_from", "")
 
     async with db_sessionmaker() as session:
         session.add(

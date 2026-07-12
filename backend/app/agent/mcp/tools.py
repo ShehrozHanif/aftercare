@@ -26,6 +26,7 @@ from app.models import Alert, Conversation, Message, Patient
 logger = logging.getLogger("aftercare.agent.tools")
 
 _VALID_SEVERITIES = ("WARNING", "URGENT")
+_SEVERITY_RANK = {"WARNING": 1, "URGENT": 2}
 
 
 @dataclass
@@ -53,12 +54,43 @@ async def create_alert(
 ) -> Alert:
     """Shared escalation implementation — used by both the LLM tool and
     the deterministic fallback path. Creates the alert and flips the
-    patient's dashboard status to 'alert'."""
+    patient's dashboard status to 'alert'.
+
+    Dedup: while an OPEN alert of equal-or-higher severity exists for
+    this patient, the nurse is already looking — a repeat escalation for
+    the same episode returns that alert instead of spamming the
+    dashboard. A genuine worsening (URGENT over an open WARNING) still
+    creates a new alert."""
     severity = (severity or "").upper()
     if severity not in _VALID_SEVERITIES:
         # Bias toward escalation: an unrecognized severity still flags.
         logger.warning("Unrecognized severity %r — defaulting to WARNING", severity)
         severity = "WARNING"
+
+    open_alerts = (
+        (
+            await session.execute(
+                select(Alert)
+                .where(Alert.patient_id == patient.id, Alert.status == "open")
+                .order_by(Alert.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for open_alert in open_alerts:
+        if _SEVERITY_RANK[open_alert.severity] >= _SEVERITY_RANK[severity]:
+            patient.status = "alert"  # keep the contract even on dedup
+            logger.info(
+                "Escalation deduplicated for patient_id=%s: open alert %s "
+                "(%s) already covers severity %s",
+                patient.id,
+                open_alert.id,
+                open_alert.severity,
+                severity,
+            )
+            return open_alert
+
     alert = Alert(
         patient_id=patient.id,
         conversation_id=conversation.id if conversation else None,
