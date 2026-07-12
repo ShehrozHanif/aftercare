@@ -56,7 +56,9 @@ app = FastAPI(
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=sorted({settings.frontend_url, "http://localhost:3000"}),
+    # rstrip: an origin with a trailing slash never matches — a pasted
+    # FRONTEND_URL like "https://app.vercel.app/" would break CORS on deploy.
+    allow_origins=sorted({settings.frontend_url.rstrip("/"), "http://localhost:3000"}),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
