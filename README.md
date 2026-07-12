@@ -81,6 +81,31 @@ curl -X POST localhost:8000/checkins/run   # fire today's check-in round on dema
 
 To reset the demo: stop the backend, delete `backend/aftercare.db`, start it again — it reseeds itself.
 
+## Questions people ask
+
+### Why doesn't the "+ Add condition protocol" button do anything?
+
+**It's intentional, not a bug.** The button on the dashboard has no click handler — it's an *affordance*: a visual hint that adding a new disease is a first-class action in this system. Building a real "upload a checklist through the UI" feature would mean a checklist editor, validation, and a clinician-review workflow — days of work for zero demo value, and exactly the kind of thing a real deployment should gate behind clinician review rather than a self-serve button anyway. Today, adding a condition is one Python file in `backend/app/agent/conditions/` (that's the pitch: *"a new checklist, not a new app"*).
+
+The panel next to it shows what's registered:
+
+| Label | Meaning |
+|---|---|
+| **Heart Failure — Active** | Fully implemented checklist: real symptom questions, real warning signs in three severity tiers (URGENT / WARNING / OK). The demo condition. |
+| **Post-surgical — Stub** | Registered with a name and structure, but the clinical checklist isn't filled in yet. |
+| **COPD — Stub** | Same — a placeholder proving the slot exists. |
+
+The stubs are shown (not hidden) on purpose: the agent engine is condition-agnostic — it loads whatever checklist matches the patient's condition and runs the identical loop. The stubs are the visual proof that the design scales.
+
+### What are COPD and "post-surgical"?
+
+The other two patient conditions seeded in the demo:
+
+- **COPD — Chronic Obstructive Pulmonary Disease.** A long-term lung disease (usually from smoking) where the airways are permanently narrowed, making breathing hard. It's one of the most common causes of hospital readmission worldwide: patients go home after a flare-up, and catching worsening breathlessness within a day or two can prevent the next emergency admission. Demo patient: **Bilal Khan**.
+- **Post-surgical — recovery after an operation.** Not one disease, but the general "you just had surgery, watch for complications" situation: wound infection (redness, swelling, discharge, fever), uncontrolled pain, bleeding. Most complications appear in the first days at home — exactly when nobody is checking on the patient. Demo patient: **Fatima Noor**.
+
+These two were chosen alongside heart failure because they're the classic high-readmission discharge categories every hospital already hands out "call your doctor if…" leaflets for — and together they show the same engine covering a chronic heart disease, a chronic lung disease, and a one-time surgical recovery. (Fatima and Bilal can still chat with the agent — the engine works for them — but with stub checklists they only get the generic safety net, which is why the demo always uses Ahmed.)
+
 ## Honest scope
 
 **Real:** the LLM reasoning and free-text understanding, the escalation tooling, the safety net, memory across days, scheduled daily check-ins, both UIs, the tests.
