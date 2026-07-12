@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # App
     frontend_url: str = "http://localhost:3000"
 
+    # Phase 5 — scheduled daily check-ins (in-process asyncio task)
+    checkin_scheduler_enabled: bool = True
+    checkin_hour_utc: int = 13  # 13:00 UTC = 18:00 PKT evening check-in
+
     # Twilio (Phase 4 bonus — web chat never depends on these)
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""

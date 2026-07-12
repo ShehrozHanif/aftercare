@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.conditions import UnknownConditionError
-from app.agent.runner import agent_turn, start_checkin
+from app.agent.runner import agent_turn
 from app.db import get_session
 from app.models import Patient
 from app.schemas import AlertOut, ChatRequest, ChatResponse, CheckinStartResponse
-from app.services.twilio_client import send_whatsapp
+from app.services.checkins import run_due_checkins, start_and_deliver_checkin
 
 router = APIRouter(tags=["chat"])
 
@@ -42,12 +42,17 @@ async def start_checkin_route(
 ) -> CheckinStartResponse:
     patient = await _load_patient(session, patient_id)
     try:
-        conversation, greeting = await start_checkin(session, patient)
+        conversation_id, greeting = await start_and_deliver_checkin(session, patient)
     except UnknownConditionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    # WhatsApp door (Phase 4): deliver the greeting to the patient's phone
-    # too. No-ops safely when Twilio isn't configured — web chat never
-    # depends on it.
-    if patient.channel == "whatsapp" and patient.phone:
-        await send_whatsapp(patient.phone, greeting)
-    return CheckinStartResponse(conversation_id=conversation.id, reply=greeting)
+    return CheckinStartResponse(conversation_id=conversation_id, reply=greeting)
+
+
+@router.post("/checkins/run")
+async def run_checkins_route(
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, list[int]]:
+    """Fire the daily check-ins now (same function the scheduler runs).
+    Idempotent: patients who already checked in today are skipped."""
+    started = await run_due_checkins(session)
+    return {"started": started}

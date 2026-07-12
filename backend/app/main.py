@@ -1,5 +1,7 @@
 """AfterCare API — FastAPI app factory, lifespan, CORS."""
 
+import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 
@@ -33,7 +35,16 @@ async def lifespan(app: FastAPI):
             "Agent mode: DETERMINISTIC FALLBACK ONLY — OPENAI_API_KEY is not set. "
             "Replies use the checklist keyword classifier and templates."
         )
+    scheduler_task: asyncio.Task | None = None
+    if settings.checkin_scheduler_enabled:
+        from app.services.checkins import scheduler_loop
+
+        scheduler_task = asyncio.create_task(scheduler_loop())
     yield
+    if scheduler_task is not None:
+        scheduler_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await scheduler_task
 
 
 app = FastAPI(

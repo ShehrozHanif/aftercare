@@ -23,11 +23,12 @@ When a patient leaves the hospital, follow-up mostly doesn't happen — and smal
 
 **Phase 4 (WhatsApp) code is COMPLETE and tested** — `POST /whatsapp/incoming` (replies via TwiML, maps `From` → patient.phone, unknown numbers get a polite pointer), `services/twilio_client.py` (`send_whatsapp` no-ops safely unconfigured), check-in greeting delivered to WhatsApp for whatsapp-channel patients. Set `DEMO_WHATSAPP_PHONE` in `.env` + reseed to link Ahmed to your number. **Not yet done live:** needs the user's Twilio sandbox credentials in `.env` and a public webhook URL (ngrok or the deployed backend) pointed at `/whatsapp/incoming`.
 
+**Phase 5 (scheduled daily check-ins) is COMPLETE** — in-process asyncio scheduler fires at `CHECKIN_HOUR_UTC` (default 13:00 UTC = 18:00 PKT) for every patient without a check-in that day; `POST /checkins/run` fires the same function on demand (demo trigger, idempotent per day). Delivery is channel-aware (WhatsApp greeting for whatsapp-channel patients).
+
 **▶ RESUME HERE — remaining work, in order:**
 1. **Deploy** (the original goal is a *deployed* prototype): backend + Postgres on Render, frontend on Vercel, set `NEXT_PUBLIC_API_URL` / `FRONTEND_URL` / `OPENAI_API_KEY` / `DATABASE_URL`. Needs the user's Render/Vercel accounts — ask them to log in / authorize.
 2. **Phase 4 live wiring**: user's Twilio credentials in `.env`, join the sandbox from their phone, point the sandbox webhook at `<public-url>/whatsapp/incoming`.
-3. **Phase 5 (bonus): scheduled daily check-ins** — otherwise a talk-track point.
-4. Before the demo: delete `backend/aftercare.db` and restart to reseed the clean state; run the §13 script once as rehearsal. `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
+3. Before the demo: delete `backend/aftercare.db` and restart to reseed the clean state; run the §13 script once as rehearsal. `jounry.md` is the original design journal; it contains the full rationale behind the safety rules and the no-vitals / no-training decisions — read it if a design choice here seems arbitrary.
 
 Hard-won implementation notes:
 - The Agents SDK reads `OPENAI_API_KEY` from the process env; the app loads `.env` via pydantic-settings, so `main.py` hands the key over with `set_default_openai_key()` at startup.
@@ -195,6 +196,7 @@ Exposes the clinical tools the model can call (this is the differentiator — re
 - `POST /chat` — body `{patient_id, message}` → runs `agent_turn`, returns `{reply, alert?}`. **(web chat door)**
 - `POST /whatsapp/incoming` — Twilio webhook (form-encoded `From`, `Body`); map `From` number → patient; run `agent_turn`; reply via Twilio. **(WhatsApp door)**
 - `POST /checkins/{patient_id}/start` — agent sends the first greeting (for a manual/scheduled check-in trigger in the demo)
+- `POST /checkins/run` — fire the daily check-ins now for every patient without one today (same function the Phase 5 scheduler runs; idempotent per day), returns `{started: [patient_ids]}`
 - `GET /patients` — dashboard list with current status + condition tag
 - `GET /patients/{id}/conversation` — full transcript (for "View conversation")
 - `GET /patients/{id}/checkins` — recent check-in history: one summary row per conversation `{conversation_id, started_at, escalated, severity, summary}` (nurse "memory across days" panel)

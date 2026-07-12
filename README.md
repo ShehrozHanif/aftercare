@@ -63,8 +63,8 @@ cd backend && uv run pytest   # escalation logic, LLM guardrails, demo-script pi
 
 ## What's real vs. out of scope
 
-**Real:** the LLM reasoning and free-text understanding, the escalation tooling, the safety net, memory across days, both UIs, the tests.
-**Out of scope for the MVP:** real patient data (HIPAA), EHR integration, WhatsApp Business API (sandbox only), clinician-reviewed protocol library, production scheduling.
+**Real:** the LLM reasoning and free-text understanding, the escalation tooling, the safety net, memory across days, scheduled daily check-ins, both UIs, the tests.
+**Out of scope for the MVP:** real patient data (HIPAA), EHR integration, WhatsApp Business API (sandbox only), clinician-reviewed protocol library, scheduling at production scale.
 
 ---
 
