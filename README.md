@@ -1,44 +1,61 @@
 # AfterCare 💙
 
-**AI post-discharge follow-up and escalation agent** — built solo in 48h for the Sofstica SGTDP hackathon (AI Development track).
+**An AI agent that checks on patients after they leave the hospital — and calls in a real nurse the moment something looks wrong.**
 
-> When patients go home, nobody follows up — so small problems become expensive, dangerous readmissions. AfterCare checks in with every patient daily over a WhatsApp-style chat, understands how they *feel* in plain language, and the moment it spots a warning sign, it pulls in a human nurse.
+Built solo in 48 hours for the Sofstica SGTDP hackathon (AI Development track).
 
-## The two screens
+---
 
-| Patient's phone | Nurse's dashboard |
+## The problem, in plain words
+
+When a patient goes home after a hospital stay, almost nobody follows up. Small problems — a bit of swelling, slightly harder breathing — quietly grow at home until the patient collapses and lands back in the emergency room. These readmissions are dangerous for patients and enormously expensive for hospitals. Follow-up calls are proven to prevent them, but hospitals simply don't have enough staff to phone every discharged patient every day.
+
+## Our answer, in one story
+
+Meet **Ahmed, 65**, who just went home after being treated for heart failure.
+
+1. **Every evening his phone buzzes**: *"Hi Ahmed 👋 This is your check-in from City Hospital. Just 2 minutes — how are you feeling today?"*
+2. He answers in his own words — *"okay, a bit tired"* — and taps Yes/No buttons for a few quick questions (any swelling? breathing okay? taking your medicines?).
+3. **On a good day**, the AI says goodnight and nobody at the hospital lifts a finger. That's the point — no nurse time wasted on healthy patients.
+4. **On day 4, Ahmed types**: *"my ankles are swollen and I get out of breath on the stairs."* The AI recognizes that for a heart patient this combination is a warning sign. To Ahmed it stays perfectly calm: *"Thanks for telling me — I'm letting your care team know so someone can check in with you shortly."*
+5. **At that same second**, on the nurse's dashboard at the hospital, Ahmed's name jumps to the top and turns red, showing exactly what he reported and his full chat history. A nurse reads it and phones him — **today**, instead of meeting him in the ER next week.
+
+The AI never diagnoses and never treats. Its only job is to **notice** — a human always makes the medical decision.
+
+## What we actually built
+
+| Piece | What it does |
 |---|---|
-| A warm daily check-in: *"Hi Ahmed 👋 how are you feeling today?"* Free text or one-tap answers. Always calm — never alarming, never diagnostic. | Quiet and green while everyone's fine. The moment a patient reports a red flag, their row jumps to the top, turns red, and shows exactly what they said. |
+| **Patient chat** (`/patient`) | A warm, WhatsApp-style web chat with big readable text and one-tap answer buttons. Talks to the AI agent. |
+| **Nurse dashboard** (`/dashboard`) | A live care-team view. Green rows when everyone's fine; an escalated patient jumps to the top, turns red, and shows the reason, the matched warning signs, the full transcript, and a **"Recent check-ins" history** (was fine Monday, tired Tuesday, swollen today). Refreshes every 3 seconds. |
+| **The AI agent** (one shared "brain") | Reads the patient's free-text reply, compares it against that condition's official discharge warning signs, and decides: OK / WARNING / URGENT. Escalation happens by the model calling a real tool (`escalate_to_clinician`) — reasoning + tools + memory, not a scripted bot. |
+| **A safety net under the AI** | A deterministic keyword checker runs on every message. If *either* the LLM *or* the checklist thinks something is wrong, a nurse gets flagged. Over-flagging is fine; under-flagging is not. (Bonus: with no API key at all, the whole demo still works offline on this checker.) |
+| **Pluggable conditions** | Heart failure is fully built. Post-surgical and COPD are registered stubs. Adding a new disease = adding one checklist file — the engine never changes. |
+| **WhatsApp door** (bonus) | The same agent reachable over real WhatsApp via Twilio's sandbox. The channel only changes how messages travel — one brain, two doors. Web chat never depends on it. |
+| **Scheduled daily check-ins** (bonus) | A built-in scheduler sends every patient their daily greeting automatically (6 PM PKT by default). `POST /checkins/run` fires the round on demand for the demo. |
+| **Tests** | 47 automated tests pin the safety behavior: red-flag messages must always escalate, the scripted all-clear day must never false-alarm, and the demo scripts are locked in as regression tests. |
 
-**The key moment:** a heart-failure patient types *"my ankles are swollen and I get out of breath on the stairs."* The agent replies calmly — *"Thanks for telling me, I'm letting your care team know"* — while the nurse's screen lights up with the matched warning signs and full transcript. Triage, not chatbot.
+## The safety rules we never break
 
-## Safety is the feature
+1. **Never diagnoses, never prescribes** — it doesn't even name a condition to the patient.
+2. **A human always makes the medical decision** — the AI's only clinical action is flagging a nurse.
+3. **When unsure, escalate** — a false alarm costs a nurse a glance; a miss can cost a life.
+4. **Never alarm the patient** — calm reassurance on their screen; the red flag goes to the care team only.
+5. **No vitals collection** — it asks how you *feel*, not for blood-pressure numbers (this deliberately keeps it an early-warning helper, not a regulated medical device).
+6. **Synthetic data only** — every patient is fictional.
+7. **The medical checklists aren't ours** — they're digitised from the standard "call your doctor if…" discharge sheets hospitals already hand out, and are marked as requiring clinician review before real-world use.
 
-1. **Never diagnoses, never prescribes.** Its only clinical action is flagging a nurse.
-2. **Human always makes the medical decision.**
-3. **Escalates when unsure** — tuned to over-flag, never under-flag. A deterministic checklist safety net backs the LLM: if either thinks a message matches a discharge warning sign, a nurse is flagged.
-4. **The patient never sees the alarm.** Calm reassurance on their side; the red flag goes to the care team.
-5. **No vitals collection** — it asks how patients feel, not for numbers (stays clearly out of medical-device territory).
-6. **Synthetic data only.** All patients are fictional.
-7. Warning-sign checklists are digitised from standard hospital discharge guidance ("call your doctor if…"), marked as **requiring clinician review** before any real-world use.
-
-## Architecture — "two doors, one brain"
+## How it's put together
 
 ```
 Patient (web chat) ─┐
                     ├─► FastAPI agent ──► escalate_to_clinician ──► Nurse dashboard
-Patient (WhatsApp) ─┘      │ loads the condition checklist            (red row, reason,
-   (bonus channel)         │ OpenAI Agents SDK + clinical tools        transcript)
+Patient (WhatsApp) ─┘      │ loads the condition's checklist         (red row, reason,
+                           │ OpenAI Agents SDK + clinical tools       history, transcript)
                            └─► PostgreSQL / SQLite
 ```
 
-- **Condition-agnostic engine, pluggable checklists.** Heart failure is fully built; post-surgical and COPD are registered stubs. *Adding a disease is a new checklist file, not a new app.*
-- **The escalation is a tool call** the model decides to make (`escalate_to_clinician`), backed by a deterministic keyword classifier so the demo works even fully offline.
-- The agent remembers prior days' check-ins (`get_patient_history`) — context carries across conversations.
-
-## Stack
-
-Next.js + TypeScript + Tailwind (Vercel) · FastAPI + SQLAlchemy async (Render) · OpenAI Agents SDK (`gpt-5-mini`) · PostgreSQL / SQLite · Twilio WhatsApp sandbox (bonus channel).
+**Stack:** Next.js + TypeScript + Tailwind (frontend) · FastAPI + SQLAlchemy async (backend) · OpenAI Agents SDK with `gpt-5-mini` (the AI) · Twilio WhatsApp sandbox (bonus channel). Deliberately simple — no Kubernetes, no queues; one small app that works.
 
 ## Run it locally
 
@@ -55,16 +72,19 @@ npm install
 npm run dev
 ```
 
-Open **/patient** and **/dashboard** side by side. Seeded patients: Ahmed (heart failure), Fatima (post-surgical), Bilal (COPD). No API key? The agent runs on the deterministic checklist classifier — fully functional offline.
+Open **/patient** and **/dashboard** side by side. Seeded patients: Ahmed (heart failure, with two days of check-in history already on file), Fatima (post-surgical), Bilal (COPD). Type Ahmed's day-4 message — *"my ankles are swollen and I get out of breath on the stairs"* — and watch the dashboard.
 
 ```bash
-cd backend && uv run pytest   # escalation logic, LLM guardrails, demo-script pins
+cd backend && uv run pytest        # run the 47-test safety suite
+curl -X POST localhost:8000/checkins/run   # fire today's check-in round on demand
 ```
 
-## What's real vs. out of scope
+To reset the demo: stop the backend, delete `backend/aftercare.db`, start it again — it reseeds itself.
+
+## Honest scope
 
 **Real:** the LLM reasoning and free-text understanding, the escalation tooling, the safety net, memory across days, scheduled daily check-ins, both UIs, the tests.
-**Out of scope for the MVP:** real patient data (HIPAA), EHR integration, WhatsApp Business API (sandbox only), clinician-reviewed protocol library, scheduling at production scale.
+**Out of scope for the MVP:** real patient data (HIPAA), EHR integration, WhatsApp Business API (sandbox only), a clinician-reviewed protocol library, scheduling at production scale.
 
 ---
 
