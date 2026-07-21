@@ -121,18 +121,19 @@ Keep it to ~2 minutes, plain language, tappable answers where possible. The agen
 
 Each medical condition is a **self-contained checklist module**. The agent engine never changes; only the checklist swaps based on `patient.condition`.
 
-- For the hackathon: **Heart Failure is fully built.** That is the demo condition.
-- Other conditions (Post-surgical, COPD, Liver transplant, etc.) are **registered stubs** so the design visibly scales. The nurse dashboard shows a condition tag on every patient and an "Add condition protocol" affordance.
-- Adding a condition later = adding one checklist file to the registry. No engine changes. This is a core pitch point: "adding a disease is a new checklist, not a new app."
+- **Heart Failure, Post-surgical, and COPD are all fully built** (real warning-sign checklists from standard discharge guidance, marked clinician-review-required). Heart Failure is still the primary demo condition (§13), but all three now escalate their own red flags — the patient chat shows condition-tailored one-tap demo messages, and the dashboard marks all three protocols "Active". Adding a further condition (Liver transplant, etc.) = one more checklist file.
+- The three real conditions are the pitch made concrete: **one engine, three diseases, each just a checklist.** The nurse dashboard shows a condition tag on every patient and an "Add condition protocol" affordance (deliberately inert — a real deployment gates new protocols behind clinician review).
+- Adding a condition = adding one checklist file to the registry. No engine changes. Core pitch point: "adding a disease is a new checklist, not a new app."
+- Keyword discipline (§1.5): the deterministic safety net runs every turn, so each checklist's keywords are *qualified* to avoid flagging that condition's normal recovery state ("more breathless" not "breathless"; "more pain" not "sore"). `tests/test_matcher.py` pins all three conditions' all-clear and red-flag phrases (incl. the exact demo-chip text) — run it after any keyword change.
 
 Implement checklists as a registry:
 
 ```
 agent/conditions/
   __init__.py          # CONDITIONS registry: name -> checklist object
-  heart_failure.py     # fully implemented
-  post_surgical.py     # stub (structure only)
-  copd.py              # stub
+  heart_failure.py     # fully implemented (primary demo condition)
+  post_surgical.py     # fully implemented (wound infection, bleeding, dehiscence, clot signs)
+  copd.py              # fully implemented (breathlessness, sputum change, exacerbation signs)
 ```
 
 Each checklist object provides: `display_name`, `intro_questions` (the symptom questions to ask), and `warning_signs` (structured signs with severity), consumed by the system-prompt builder.
@@ -200,6 +201,8 @@ Exposes the clinical tools the model can call (this is the differentiator — re
 - `POST /checkins/{patient_id}/start` — agent sends the first greeting (for a manual/scheduled check-in trigger in the demo)
 - `POST /checkins/run` — fire the daily check-ins now for every patient without one today (same function the Phase 5 scheduler runs; idempotent per day), returns `{started: [patient_ids]}`
 - `GET /patients` — dashboard list with current status + condition tag
+- `GET /stats` — live control-room counters for the dashboard stat bar: `{patients_monitored, needs_call (patients with an open alert), checkins_today (conversations started today, UTC)}`
+- `GET /conditions` — all registered condition protocols with warning signs grouped by severity: `[{name, display_name, implemented, intro_questions[], signs:{urgent[], warning[]}}]`. Backs the dashboard's interactive "Condition protocols" panel (tap a protocol → see its real signs) — makes the pluggable-checklist pitch inspectable. Content comes from the code registry, no DB.
 - `GET /patients/{id}/conversation` — full transcript (for "View conversation")
 - `GET /patients/{id}/checkins` — recent check-in history: one summary row per conversation `{conversation_id, started_at, escalated, severity, summary}` (nurse "memory across days" panel)
 - `GET /patients/{id}/report` — recovery report: `{checkins_sent, checkins_answered, medication_concerns, symptom_mentions[{date, severity, signs}], alerts_total, alerts_open, days_since_discharge, ...}` — deterministic aggregation of what the patient *reported* (never interprets clinical data); backs the dashboard "View report" panel
@@ -268,8 +271,8 @@ healthcare_mvp/            # repo root
         conditions/
           __init__.py         # CONDITIONS registry
           heart_failure.py    # full
-          post_surgical.py    # stub
-          copd.py             # stub
+          post_surgical.py    # full
+          copd.py             # full
         mcp/
           server.py           # MCP server
           tools.py            # tool implementations

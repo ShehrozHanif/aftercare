@@ -91,19 +91,19 @@ To reset the demo: stop the backend, delete `backend/aftercare.db`, start it aga
 
 ## Questions people ask
 
-### Why doesn't the "+ Add condition protocol" button do anything?
+### What is the "Condition protocols" panel on the dashboard?
 
-**It's intentional, not a bug.** The button on the dashboard has no click handler — it's an *affordance*: a visual hint that adding a new disease is a first-class action in this system. Building a real "upload a checklist through the UI" feature would mean a checklist editor, validation, and a clinician-review workflow — days of work for zero demo value, and exactly the kind of thing a real deployment should gate behind clinician review rather than a self-serve button anyway. Today, adding a condition is one Python file in `backend/app/agent/conditions/` (that's the pitch: *"a new checklist, not a new app"*).
+It's the visible proof of the core idea: **one engine, many diseases, each just a checklist.** The panel lists every registered protocol with its warning-sign count and an "Active" badge — and you can **tap any protocol to see its actual warning signs** (the URGENT and WARNING tiers), pulled live from the backend (`GET /conditions`). That means the pluggable claim is *inspectable*, not just words: a judge can open Heart Failure and read the real 5 urgent + 6 warning signs the agent reasons over.
 
-The panel next to it shows what's registered:
+All three conditions are fully built:
 
-| Label | Meaning |
+| Protocol | Real warning signs it watches for |
 |---|---|
-| **Heart Failure — Active** | Fully implemented checklist: real symptom questions, real warning signs in three severity tiers (URGENT / WARNING / OK). The demo condition. |
-| **Post-surgical — Stub** | Registered with a name and structure, but the clinical checklist isn't filled in yet. |
-| **COPD — Stub** | Same — a placeholder proving the slot exists. |
+| **Heart Failure** | Chest pain, severe breathlessness, fainting, swelling, weight gain, worsening cough… |
+| **Post-Surgical Recovery** | Wound infection, heavy bleeding, wound breakdown, blood-clot signs, worsening pain… |
+| **COPD** | Severe breathlessness, blue lips, more/discoloured phlegm, worsening cough/wheeze, chest infection… |
 
-The stubs are shown (not hidden) on purpose: the agent engine is condition-agnostic — it loads whatever checklist matches the patient's condition and runs the identical loop. The stubs are the visual proof that the design scales.
+The **"+ Add condition protocol"** button expands a short explainer rather than a real upload form — on purpose. Adding a real protocol means writing clinician-reviewed clinical logic, so a production deployment gates it behind clinical review, not a self-serve button. Under the hood, adding a disease is literally one Python file in `backend/app/agent/conditions/` with no engine changes — *"a new checklist, not a new app."*
 
 ### What are COPD and "post-surgical"?
 
@@ -112,7 +112,7 @@ The other two patient conditions seeded in the demo:
 - **COPD — Chronic Obstructive Pulmonary Disease.** A long-term lung disease (usually from smoking) where the airways are permanently narrowed, making breathing hard. It's one of the most common causes of hospital readmission worldwide: patients go home after a flare-up, and catching worsening breathlessness within a day or two can prevent the next emergency admission. Demo patient: **Bilal Khan**.
 - **Post-surgical — recovery after an operation.** Not one disease, but the general "you just had surgery, watch for complications" situation: wound infection (redness, swelling, discharge, fever), uncontrolled pain, bleeding. Most complications appear in the first days at home — exactly when nobody is checking on the patient. Demo patient: **Fatima Noor**.
 
-These two were chosen alongside heart failure because they're the classic high-readmission discharge categories every hospital already hands out "call your doctor if…" leaflets for — and together they show the same engine covering a chronic heart disease, a chronic lung disease, and a one-time surgical recovery. (Fatima and Bilal can still chat with the agent — the engine works for them — but with stub checklists they only get the generic safety net, which is why the demo always uses Ahmed.)
+These two were chosen alongside heart failure because they're the classic high-readmission discharge categories every hospital already hands out "call your doctor if…" leaflets for — and together they show the same engine covering a chronic heart disease, a chronic lung disease, and a one-time surgical recovery. Each patient in the chat gets one-tap demo messages tailored to their own condition, and each escalates its own red flags (the demo still leads with Ahmed as the headline story).
 
 ## Honest scope
 
