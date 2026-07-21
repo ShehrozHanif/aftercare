@@ -57,6 +57,30 @@ class PatientOut(BaseModel):
     open_alerts: list[AlertOut] = []
 
 
+class ConditionSigns(BaseModel):
+    urgent: list[str]
+    warning: list[str]
+
+
+class ConditionOut(BaseModel):
+    """A condition protocol exposed to the dashboard — proves the pluggable
+    checklists are real, inspectable clinical content, not decoration."""
+
+    name: str
+    display_name: str
+    implemented: bool
+    intro_questions: list[str]
+    signs: ConditionSigns
+
+
+class DashboardStats(BaseModel):
+    """Live control-room counters for the dashboard stat bar."""
+
+    patients_monitored: int
+    needs_call: int  # patients with at least one open alert
+    checkins_today: int  # conversations started today (UTC)
+
+
 class MessageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

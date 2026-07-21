@@ -14,6 +14,7 @@ from app.schemas import (
     AlertOut,
     CheckinSummary,
     ConversationTranscript,
+    DashboardStats,
     MessageOut,
     PatientOut,
     RecoveryReport,
@@ -59,6 +60,39 @@ async def list_patients(
         )
         for p in patients
     ]
+
+
+@router.get("/stats", response_model=DashboardStats)
+async def dashboard_stats(
+    session: AsyncSession = Depends(get_session),
+) -> DashboardStats:
+    """Live control-room counters for the dashboard stat bar: how many
+    patients are being followed, how many need a call right now (any open
+    alert), and how many check-ins have gone out today."""
+    patients = (
+        (await session.execute(select(Patient).options(selectinload(Patient.alerts))))
+        .scalars()
+        .all()
+    )
+    needs_call = sum(
+        1 for p in patients if any(a.status == "open" for a in p.alerts)
+    )
+
+    today = datetime.now(UTC).date()
+    started = (
+        (await session.execute(select(Conversation.started_at))).scalars().all()
+    )
+    checkins_today = sum(
+        1
+        for s in started
+        if (s if s.tzinfo else s.replace(tzinfo=UTC)).astimezone(UTC).date() == today
+    )
+
+    return DashboardStats(
+        patients_monitored=len(patients),
+        needs_call=needs_call,
+        checkins_today=checkins_today,
+    )
 
 
 @router.get(

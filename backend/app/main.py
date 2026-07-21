@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import SessionLocal, init_db
-from app.routers import alerts, chat, patients, whatsapp
+from app.routers import alerts, chat, conditions, patients, whatsapp
 from app.seed import seed
 
 logging.basicConfig(level=logging.INFO)
@@ -68,6 +68,7 @@ app.include_router(chat.router)
 app.include_router(patients.router)
 app.include_router(alerts.router)
 app.include_router(whatsapp.router)
+app.include_router(conditions.router)
 
 
 @app.get("/")
