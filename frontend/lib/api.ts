@@ -14,7 +14,9 @@ import type {
   ChatResponse,
   CheckinStartResponse,
   CheckinSummary,
+  ConditionProtocol,
   ConversationResponse,
+  DashboardStats,
   Patient,
   RecoveryReport,
 } from "./types";
@@ -22,9 +24,11 @@ import {
   mockAckAlert,
   mockChat,
   mockGetCheckins,
+  mockGetConditions,
   mockGetConversation,
   mockGetPatients,
   mockGetReport,
+  mockGetStats,
   mockResolvePatient,
   mockStartCheckin,
 } from "./mocks";
@@ -113,6 +117,17 @@ export function sendChat(patientId: number, message: string): Promise<ChatRespon
 
 export function getPatients(): Promise<Patient[]> {
   return withFallback(() => request<Patient[]>("/patients"), mockGetPatients);
+}
+
+export function getStats(): Promise<DashboardStats> {
+  return withFallback(() => request<DashboardStats>("/stats"), mockGetStats);
+}
+
+export function getConditions(): Promise<ConditionProtocol[]> {
+  return withFallback(
+    () => request<ConditionProtocol[]>("/conditions"),
+    mockGetConditions
+  );
 }
 
 export function getConversation(patientId: number): Promise<ConversationResponse> {

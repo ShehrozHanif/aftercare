@@ -21,6 +21,45 @@ interface Bubble {
 
 const DEFAULT_PATIENT_ID = 1; // Ahmed Raza (heart failure demo patient)
 
+/**
+ * Demo starter messages (§13 demo script), tailored per condition so each
+ * patient chats about their own disease. One-tap so a judge can fire the
+ * calm path or the escalation without knowing the "magic phrase". `emoji`
+ * is display-only; `text` (clean) is what gets sent to the agent, and each
+ * concern line matches that condition's warning-sign checklist so it
+ * reliably escalates (see backend tests/test_matcher.py).
+ */
+type Suggestion = { emoji: string; text: string; concern?: boolean };
+
+const SUGGESTED_BY_CONDITION: Record<string, Suggestion[]> = {
+  heart_failure: [
+    { emoji: "🙂", text: "I'm feeling okay today, no new problems" },
+    {
+      emoji: "😟",
+      text: "My ankles are swollen and I'm out of breath on the stairs",
+      concern: true,
+    },
+  ],
+  post_surgical: [
+    { emoji: "🙂", text: "Feeling okay — the wound is a bit sore but healing well" },
+    {
+      emoji: "😟",
+      text: "My wound is red and oozing and I've had a fever since last night",
+      concern: true,
+    },
+  ],
+  copd: [
+    { emoji: "🙂", text: "Breathing feels steady today, about the same as usual" },
+    {
+      emoji: "😟",
+      text: "I'm much more breathless than usual and coughing up green phlegm",
+      concern: true,
+    },
+  ],
+};
+
+const DEFAULT_SUGGESTIONS = SUGGESTED_BY_CONDITION.heart_failure;
+
 /** Show Yes / No / A little chips only for closed (yes/no-style) questions. */
 function isClosedQuestion(text: string): boolean {
   if (!text.includes("?")) return false;
@@ -120,13 +159,18 @@ export default function PatientChat() {
 
   const lastBubble = bubbles[bubbles.length - 1];
   const showChips = !typing && lastBubble?.sender === "agent" && isClosedQuestion(lastBubble.text);
+  // Demo starter chips: only when free-text is expected (no Yes/No chips up),
+  // the check-in has loaded, and we're not mid-send.
+  const showSuggestions = !typing && !showChips && bubbles.length > 0 && !loadError;
   const currentPatient = patients.find((p) => p.id === patientId);
+  const suggestions =
+    SUGGESTED_BY_CONDITION[currentPatient?.condition ?? ""] ?? DEFAULT_SUGGESTIONS;
 
   return (
-    <div className="flex flex-1 justify-center">
-      <div className="flex h-dvh w-full max-w-md flex-col bg-page sm:my-0 sm:shadow-card">
+    <div className="fixed inset-0 flex justify-center overflow-hidden">
+      <div className="flex h-full min-h-0 w-full max-w-md flex-col bg-page sm:shadow-card">
         {/* Header */}
-        <header className="flex items-center gap-3 bg-pine px-4 py-3 text-white">
+        <header className="flex items-center gap-3 bg-gradient-to-br from-pine to-pine-deep px-4 py-3 text-white">
           <Link
             href="/"
             aria-label="Back to home"
@@ -176,7 +220,7 @@ export default function PatientChat() {
         {/* Messages */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto px-4 py-4"
+          className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
           aria-label={`Conversation with your care team${
             currentPatient ? ` as ${currentPatient.name}` : ""
           }`}
@@ -228,6 +272,47 @@ export default function PatientChat() {
                 {chip}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Demo starter messages — one-tap calm / red-flag (§13) */}
+        {showSuggestions && (
+          <div className="px-4 pb-2 pt-1">
+            <p className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+              <svg
+                aria-hidden
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z" />
+              </svg>
+              Try a message
+            </p>
+            <div className="flex flex-col gap-1.5" role="group" aria-label="Demo starter messages">
+              {suggestions.map((s) => (
+                <button
+                  key={s.text}
+                  type="button"
+                  onClick={() => void send(s.text)}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                    s.concern
+                      ? "border-watch/40 bg-watch-soft/50 text-ink hover:bg-watch-soft"
+                      : "border-line bg-card text-ink hover:bg-pine-soft/60"
+                  }`}
+                >
+                  <span aria-hidden className="text-base leading-none">
+                    {s.emoji}
+                  </span>
+                  <span className="min-w-0">{s.text}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

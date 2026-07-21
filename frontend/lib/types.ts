@@ -70,6 +70,28 @@ export interface CheckinStartResponse {
   reply: string;
 }
 
+/** Warning signs for a condition, grouped by severity. */
+export interface ConditionSigns {
+  urgent: string[];
+  warning: string[];
+}
+
+/** One item of GET /conditions — a pluggable checklist protocol. */
+export interface ConditionProtocol {
+  name: string;
+  display_name: string;
+  implemented: boolean;
+  intro_questions: string[];
+  signs: ConditionSigns;
+}
+
+/** Response of GET /stats — live dashboard control-room counters. */
+export interface DashboardStats {
+  patients_monitored: number;
+  needs_call: number;
+  checkins_today: number;
+}
+
 /** One row of GET /patients/{id}/checkins — nurse-facing history. */
 export interface CheckinSummary {
   conversation_id: number;

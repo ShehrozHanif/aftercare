@@ -13,7 +13,9 @@ import type {
   ChatResponse,
   CheckinStartResponse,
   CheckinSummary,
+  ConditionProtocol,
   ConversationResponse,
+  DashboardStats,
   Message,
   Patient,
   RecoveryReport,
@@ -163,6 +165,105 @@ export function mockGetPatients(): Patient[] {
     ...patient,
     open_alerts: [...(patient.open_alerts ?? [])],
   }));
+}
+
+export function mockGetConditions(): ConditionProtocol[] {
+  return [
+    {
+      name: "heart_failure",
+      display_name: "Heart Failure",
+      implemented: true,
+      intro_questions: [
+        "How are you feeling today, in your own words?",
+        "Any new swelling in your legs, ankles, feet, or tummy?",
+        "How is your breathing — any more breathless than usual?",
+        "Are you managing to take your medicines as usual?",
+      ],
+      signs: {
+        urgent: [
+          "Chest pain or pressure",
+          "Severe or sudden shortness of breath / breathless at rest",
+          "Fainting or near-fainting",
+          "Very fast or irregular heartbeat with dizziness",
+          "New confusion",
+        ],
+        warning: [
+          "New or increased swelling in legs, ankles, feet, or abdomen",
+          "Sudden weight gain",
+          "Increasing shortness of breath on exertion, or breathless lying flat",
+          "New or worsening cough or wheezing",
+          "Increasing fatigue / can't do usual activities",
+          "Not taking medication (ran out, forgot, or stopped)",
+        ],
+      },
+    },
+    {
+      name: "post_surgical",
+      display_name: "Post-Surgical Recovery",
+      implemented: true,
+      intro_questions: [
+        "How are you feeling today, in your own words?",
+        "How is the wound or the area around your operation looking and feeling?",
+        "Any fever, or redness, swelling, or fluid coming from the wound?",
+        "Are you managing to take your medicines as usual?",
+      ],
+      signs: {
+        urgent: [
+          "Heavy or uncontrolled bleeding from the wound",
+          "The wound has opened up (dehiscence)",
+          "Sudden breathlessness, chest pain, or a hot swollen painful calf",
+          "High fever with feeling very unwell (possible serious infection)",
+        ],
+        warning: [
+          "Signs of wound infection — spreading redness, warmth, swelling, or discharge",
+          "Fever or raised temperature",
+          "Pain getting worse instead of better",
+          "Ongoing vomiting or unable to keep fluids down",
+          "Not taking medication (ran out, forgot, or stopped)",
+        ],
+      },
+    },
+    {
+      name: "copd",
+      display_name: "COPD",
+      implemented: true,
+      intro_questions: [
+        "How are you feeling today, in your own words?",
+        "How is your breathing compared with a normal day for you?",
+        "Any change in your cough or the phlegm you're bringing up?",
+        "Are you managing to take your medicines and inhalers as usual?",
+      ],
+      signs: {
+        urgent: [
+          "Severe breathlessness — breathless at rest or can't finish a sentence",
+          "Blue lips or fingertips",
+          "New confusion or unusual drowsiness",
+          "Coughing up blood",
+          "Chest pain",
+        ],
+        warning: [
+          "More short of breath than usual, or breathless doing less",
+          "More phlegm than usual, or a changed colour (yellow/green/brown)",
+          "Coughing more than usual",
+          "More wheezing or chest tightness",
+          "Fever or signs of a chest infection",
+          "Not taking medicines or inhalers as usual",
+        ],
+      },
+    },
+  ];
+}
+
+export function mockGetStats(): DashboardStats {
+  const patients = Array.from(store.values());
+  const needs_call = patients.filter((s) =>
+    (s.patient.open_alerts ?? []).some((a) => a.status === "open")
+  ).length;
+  return {
+    patients_monitored: patients.length,
+    needs_call,
+    checkins_today: patients.length, // one scripted check-in each in mock mode
+  };
 }
 
 export function mockGetConversation(patientId: number): ConversationResponse {
