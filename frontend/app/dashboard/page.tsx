@@ -12,6 +12,7 @@ import Link from "next/link";
 import {
   ackAlert,
   getCheckins,
+  getCheckinsToday,
   getConditions,
   getConversation,
   getPatients,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/api";
 import type {
   CheckinSummary,
+  CheckinTodayItem,
   ConditionProtocol,
   ConversationResponse,
   DashboardStats,
@@ -112,6 +114,10 @@ export default function Dashboard() {
   const [conditions, setConditions] = useState<ConditionProtocol[]>([]);
   const [protocolFor, setProtocolFor] = useState<string | null>(null);
   const [showAddInfo, setShowAddInfo] = useState(false);
+  // "Check-ins today" drill-down (drawer) + "Needs a call" list filter
+  const [checkinsPanelOpen, setCheckinsPanelOpen] = useState(false);
+  const [checkinsToday, setCheckinsToday] = useState<CheckinTodayItem[] | null>(null);
+  const [filterNeedsCall, setFilterNeedsCall] = useState(false);
   const [ackInFlight, setAckInFlight] = useState<Set<number>>(new Set());
   const [resolveInFlight, setResolveInFlight] = useState<Set<number>>(new Set());
   // ids of patients that just escalated (for the attention pulse)
@@ -205,6 +211,28 @@ export default function Dashboard() {
     };
   }, [transcriptFor]);
 
+  // Load (and keep refreshing) today's check-in worklist while its drawer is open.
+  useEffect(() => {
+    if (!checkinsPanelOpen) {
+      setCheckinsToday(null);
+      return;
+    }
+    let cancelled = false;
+    const load = () => {
+      getCheckinsToday()
+        .then((c) => {
+          if (!cancelled) setCheckinsToday(c);
+        })
+        .catch(() => {});
+    };
+    void load();
+    const iv = setInterval(load, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [checkinsPanelOpen]);
+
   // Load the recovery report when its panel opens (one-shot per open).
   useEffect(() => {
     if (reportFor === null) {
@@ -289,6 +317,9 @@ export default function Dashboard() {
   });
 
   const needsCall = sorted.filter((p) => effectiveStatus(p) === "alert").length;
+  const visible = filterNeedsCall
+    ? sorted.filter((p) => effectiveStatus(p) === "alert")
+    : sorted;
   const protocol = protocolFor
     ? conditions.find((c) => c.name === protocolFor) ?? null
     : null;
@@ -362,9 +393,17 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div
-            className={`flex items-center gap-3 rounded-xl border p-3 shadow-card sm:p-4 ${
-              needsCall > 0 ? "border-alert/40 bg-alert-soft" : "border-line bg-card"
+          <button
+            type="button"
+            onClick={() => setFilterNeedsCall((v) => !v)}
+            disabled={needsCall === 0}
+            aria-pressed={filterNeedsCall}
+            className={`group flex items-center gap-3 rounded-xl border p-3 text-left shadow-card transition-colors sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-alert/50 disabled:cursor-default ${
+              needsCall > 0
+                ? `border-alert/40 bg-alert-soft hover:bg-alert-soft/70 ${
+                    filterNeedsCall ? "ring-2 ring-alert/60" : ""
+                  }`
+                : "border-line bg-card"
             }`}
           >
             <span
@@ -376,7 +415,7 @@ export default function Dashboard() {
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.7 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.27a2 2 0 0 1 2.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0 1 22 16.92z" />
               </svg>
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <dd
                 className={`text-2xl font-bold leading-none tabular-nums ${
                   needsCall > 0 ? "text-alert" : ""
@@ -388,16 +427,26 @@ export default function Dashboard() {
                 Needs a call
               </dt>
             </div>
-          </div>
+            {needsCall > 0 && (
+              <span className="hidden self-start text-[10px] font-semibold uppercase tracking-wide text-alert/70 sm:block">
+                {filterNeedsCall ? "Clear" : "Filter"}
+              </span>
+            )}
+          </button>
 
-          <div className="flex items-center gap-3 rounded-xl border border-line bg-card p-3 shadow-card sm:p-4">
+          <button
+            type="button"
+            onClick={() => setCheckinsPanelOpen(true)}
+            disabled={!stats || stats.checkins_today === 0}
+            className="group flex items-center gap-3 rounded-xl border border-line bg-card p-3 text-left shadow-card transition-colors hover:border-pine/40 hover:bg-pine-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40 disabled:cursor-default disabled:hover:border-line disabled:hover:bg-card sm:p-4"
+          >
             <span className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-pine-soft text-pine sm:flex">
               <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 11.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14l4-4h6" />
                 <path d="m16 19 2 2 4-4" />
               </svg>
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <dd className="text-2xl font-bold leading-none tabular-nums">
                 {stats ? <CountUp value={stats.checkins_today} /> : "—"}
               </dd>
@@ -405,15 +454,36 @@ export default function Dashboard() {
                 Check-ins today
               </dt>
             </div>
-          </div>
+            {stats && stats.checkins_today > 0 && (
+              <span className="hidden self-start text-[10px] font-semibold uppercase tracking-wide text-pine/70 sm:block">
+                View
+              </span>
+            )}
+          </button>
         </dl>
       </div>
 
       <div className="mx-auto grid w-full max-w-6xl flex-1 gap-4 p-4 lg:grid-cols-[1fr_320px]">
         {/* Patient list */}
         <main aria-label="Patients">
+          {filterNeedsCall && (
+            <div className="mb-2.5 flex items-center gap-2 text-xs">
+              <span className="font-semibold text-ink-soft">Showing</span>
+              <button
+                type="button"
+                onClick={() => setFilterNeedsCall(false)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-alert/40 bg-alert-soft px-2.5 py-1 font-semibold text-alert transition-colors hover:bg-alert hover:text-white"
+              >
+                Needs a call ({needsCall})
+                <svg aria-hidden width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <path d="m3 3 10 10M13 3 3 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+              <span className="text-ink-soft">— tap to clear</span>
+            </div>
+          )}
           <ul className="flex flex-col gap-2.5">
-            {sorted.map((p) => {
+            {visible.map((p) => {
               const status = effectiveStatus(p);
               const openAlerts = (p.open_alerts ?? []).filter((a) => a.status === "open");
               const escalated = status === "alert";
@@ -536,9 +606,13 @@ export default function Dashboard() {
                 </li>
               );
             })}
-            {sorted.length === 0 && (
+            {visible.length === 0 && (
               <li className="rounded-xl border border-line bg-card p-6 text-center text-sm text-ink-soft shadow-card">
-                {pollError ? "Can't reach the AfterCare service." : "Loading patients…"}
+                {filterNeedsCall
+                  ? "No patients need a call right now. 💙"
+                  : pollError
+                    ? "Can't reach the AfterCare service."
+                    : "Loading patients…"}
               </li>
             )}
           </ul>
@@ -959,6 +1033,106 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Check-ins today — coverage view: who got seen, and their outcome */}
+      {checkinsPanelOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Today's check-ins"
+          className="fixed inset-0 z-40 flex justify-end bg-ink/40"
+          onClick={() => setCheckinsPanelOpen(false)}
+        >
+          <div
+            className="flex h-full w-full max-w-md flex-col bg-card shadow-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="flex items-center justify-between border-b border-line px-4 py-3">
+              <h2 className="font-bold">
+                Today&rsquo;s check-ins
+                <span className="ml-2 text-xs font-normal text-ink-soft">
+                  {checkinsToday ? `${checkinsToday.length} sent` : ""}
+                </span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setCheckinsPanelOpen(false)}
+                aria-label="Close check-ins"
+                className="rounded-full p-2 text-ink-soft transition-colors hover:bg-page hover:text-ink"
+              >
+                <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="m3 3 10 10M13 3 3 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto bg-page px-4 py-4">
+              {checkinsToday === null ? (
+                <p className="text-center text-sm text-ink-soft">Loading check-ins…</p>
+              ) : checkinsToday.length === 0 ? (
+                <p className="text-center text-sm text-ink-soft">
+                  No check-ins have gone out today yet.
+                </p>
+              ) : (
+                <>
+                  <p className="mb-3 text-xs text-ink-soft">
+                    Every patient messaged today, and how their reply landed. A
+                    patient can be well and still be worth noticing — silence
+                    counts too.
+                  </p>
+                  <ul className="flex flex-col gap-2">
+                    {checkinsToday.map((c) => {
+                      const outcome = c.escalated
+                        ? {
+                            label: c.severity ?? "FLAGGED",
+                            cls:
+                              c.severity === "URGENT"
+                                ? "bg-alert text-white"
+                                : "bg-alert-soft text-alert",
+                          }
+                        : c.answered
+                          ? { label: "All clear", cls: "bg-good-soft text-good" }
+                          : {
+                              label: "Awaiting reply",
+                              cls: "bg-watch-soft text-watch",
+                            };
+                      return (
+                        <li key={c.patient_id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCheckinsPanelOpen(false);
+                              setTranscriptFor(c.patient_id);
+                            }}
+                            className="flex w-full items-center gap-3 rounded-xl border border-line bg-card p-3 text-left shadow-card transition-colors hover:border-pine/40 hover:bg-pine-soft/30"
+                          >
+                            <Avatar name={c.patient_name} size={36} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">
+                                {c.patient_name}
+                              </p>
+                              <p className="truncate text-xs text-ink-soft">
+                                {c.condition_display_name} · {formatTime(c.started_at)}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${outcome.cls}`}
+                            >
+                              {outcome.label}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </div>
+            <p className="border-t border-line px-4 py-2.5 text-center text-[10px] text-ink-soft">
+              Tap a patient to open their conversation.
+            </p>
           </div>
         </div>
       )}

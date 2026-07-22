@@ -92,6 +92,17 @@ export interface DashboardStats {
   checkins_today: number;
 }
 
+/** One row of GET /checkins/today — a patient who checked in today. */
+export interface CheckinTodayItem {
+  patient_id: number;
+  patient_name: string;
+  condition_display_name: string;
+  started_at: string; // ISO timestamp
+  answered: boolean; // patient sent at least one reply
+  escalated: boolean;
+  severity?: AlertSeverity | null;
+}
+
 /** One row of GET /patients/{id}/checkins — nurse-facing history. */
 export interface CheckinSummary {
   conversation_id: number;

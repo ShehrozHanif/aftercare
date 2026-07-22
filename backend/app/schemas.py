@@ -81,6 +81,18 @@ class DashboardStats(BaseModel):
     checkins_today: int  # conversations started today (UTC)
 
 
+class CheckinTodayItem(BaseModel):
+    """One patient's check-in for today — backs the clickable stat tile."""
+
+    patient_id: int
+    patient_name: str
+    condition_display_name: str
+    started_at: UTCDateTime
+    answered: bool  # patient sent at least one reply
+    escalated: bool
+    severity: str | None = None  # 'WARNING' | 'URGENT' when escalated
+
+
 class MessageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

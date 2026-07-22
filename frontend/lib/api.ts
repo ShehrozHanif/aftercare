@@ -14,6 +14,7 @@ import type {
   ChatResponse,
   CheckinStartResponse,
   CheckinSummary,
+  CheckinTodayItem,
   ConditionProtocol,
   ConversationResponse,
   DashboardStats,
@@ -24,6 +25,7 @@ import {
   mockAckAlert,
   mockChat,
   mockGetCheckins,
+  mockGetCheckinsToday,
   mockGetConditions,
   mockGetConversation,
   mockGetPatients,
@@ -127,6 +129,13 @@ export function getConditions(): Promise<ConditionProtocol[]> {
   return withFallback(
     () => request<ConditionProtocol[]>("/conditions"),
     mockGetConditions
+  );
+}
+
+export function getCheckinsToday(): Promise<CheckinTodayItem[]> {
+  return withFallback(
+    () => request<CheckinTodayItem[]>("/checkins/today"),
+    mockGetCheckinsToday
   );
 }
 

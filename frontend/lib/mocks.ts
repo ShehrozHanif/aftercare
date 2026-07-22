@@ -13,6 +13,7 @@ import type {
   ChatResponse,
   CheckinStartResponse,
   CheckinSummary,
+  CheckinTodayItem,
   ConditionProtocol,
   ConversationResponse,
   DashboardStats,
@@ -264,6 +265,26 @@ export function mockGetStats(): DashboardStats {
     needs_call,
     checkins_today: patients.length, // one scripted check-in each in mock mode
   };
+}
+
+export function mockGetCheckinsToday(): CheckinTodayItem[] {
+  // Every seeded patient has one scripted check-in today (newest first).
+  return Array.from(store.values())
+    .map(({ patient, messages }) => {
+      const open = (patient.open_alerts ?? []).filter((a) => a.status === "open");
+      const answered = messages.some((m) => m.sender === "patient");
+      return {
+        patient_id: patient.id,
+        patient_name: patient.name,
+        condition_display_name:
+          patient.condition_display_name ?? patient.condition,
+        started_at: now(),
+        answered,
+        escalated: open.length > 0,
+        severity: open[0]?.severity ?? null,
+      };
+    })
+    .reverse();
 }
 
 export function mockGetConversation(patientId: number): ConversationResponse {

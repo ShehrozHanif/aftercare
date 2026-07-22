@@ -13,6 +13,7 @@ from app.models import Alert, Conversation, Message, Patient
 from app.schemas import (
     AlertOut,
     CheckinSummary,
+    CheckinTodayItem,
     ConversationTranscript,
     DashboardStats,
     MessageOut,
@@ -93,6 +94,74 @@ async def dashboard_stats(
         needs_call=needs_call,
         checkins_today=checkins_today,
     )
+
+
+@router.get("/checkins/today", response_model=list[CheckinTodayItem])
+async def checkins_today(
+    session: AsyncSession = Depends(get_session),
+) -> list[CheckinTodayItem]:
+    """Who has checked in today, newest first, with each patient's outcome —
+    so the 'Check-ins today' counter drills down into an actual worklist."""
+    today = datetime.now(UTC).date()
+    conversations = (
+        (
+            await session.execute(
+                select(Conversation).order_by(Conversation.started_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    today_convs = [
+        c
+        for c in conversations
+        if (
+            c.started_at
+            if c.started_at.tzinfo
+            else c.started_at.replace(tzinfo=UTC)
+        ).astimezone(UTC).date()
+        == today
+    ]
+
+    items: list[CheckinTodayItem] = []
+    for conv in today_convs:
+        patient = await session.get(Patient, conv.patient_id)
+        if patient is None:
+            continue
+        answered = (
+            await session.execute(
+                select(Message.id)
+                .where(
+                    Message.conversation_id == conv.id,
+                    Message.sender == "patient",
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none() is not None
+        alert = (
+            (
+                await session.execute(
+                    select(Alert)
+                    .where(Alert.conversation_id == conv.id)
+                    .order_by(Alert.created_at.desc())
+                    .limit(1)
+                )
+            )
+            .scalars()
+            .first()
+        )
+        items.append(
+            CheckinTodayItem(
+                patient_id=patient.id,
+                patient_name=patient.name,
+                condition_display_name=_display_name(patient.condition),
+                started_at=conv.started_at,
+                answered=answered,
+                escalated=alert is not None,
+                severity=alert.severity if alert else None,
+            )
+        )
+    return items
 
 
 @router.get(
